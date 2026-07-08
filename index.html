@@ -386,28 +386,31 @@
       display: none !important;
     }
 
-    /* 📌 실시간 공지사항 스타일 추가 */
+    /* 📌 정사각형 실시간 공지사항 버튼 스타일 */
     #globalNoticeBtn {
       position: absolute;
       top: 25px;
-      right: 230px; /* SCORE UI 왼쪽에 나란히 배치 */
-      padding: 8px 16px;
+      right: 35px; /* 시작 화면 우측 끝 배치 */
+      width: 50px;
+      height: 50px;
+      padding: 0;
       background-color: #ff9800;
       color: white;
       border: none;
-      border-radius: 6px;
+      border-radius: 10px;
       cursor: pointer;
-      font-weight: bold;
-      font-size: 15px;
-      z-index: 15;
-      font-family: 'Noto Serif KR', serif;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      font-size: 24px;
+      z-index: 25;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.4);
       transition: background 0.2s, transform 0.1s;
     }
 
     #globalNoticeBtn:hover {
       background-color: #e65100;
-      transform: scale(1.05);
+      transform: scale(1.08);
     }
 
     .notice-list {
@@ -431,8 +434,6 @@
 <body>
 
   <div id="gameContainer">
-    <button id="globalNoticeBtn" onclick="openGlobalNotice(event)">📢 공지사항</button>
-
     <div id="scoreBoard">SCORE <span id="scoreValue">0</span></div>
     <div id="progressContainer">
       <div id="progressBar"></div>
@@ -453,6 +454,7 @@
     </div>
 
     <div id="startScreen" class="overlayScreen">
+      <button id="globalNoticeBtn" onclick="openGlobalNotice(event)" title="📢 공지사항">📢</button>
       <h1>여정의 시작</h1>
       <div id="leaderboardDisplay" class="leaderboard-box">
         <h3>🏆 명예의 전당 🏆</h3>
@@ -647,23 +649,19 @@
       }
 
       try {
-        // 주소에 타임스탬프를 덧붙여 브라우저 캐시를 무효화하고 실시간 데이터를 가져옵니다.
         const response = await fetch(`${GOOGLE_SHEET_CSV_URL}?t=${Date.now()}`);
         const data = await response.text();
         
-        // CSV 줄 단위 파싱
         const lines = data.split(/\r?\n/);
         listContainer.innerHTML = ''; 
 
         let hasNotice = false;
 
         lines.forEach(line => {
-          // CSV 각 줄을 쉼표로 분할
           const columns = line.split(',');
-          // F열은 6번째 인덱스 (A=0, B=1, C=2, D=3, E=4, F=5)
           if (columns.length >= 6) {
-            let cellValue = columns[5].replace(/^"|"$/g, '').trim(); // 따옴표 제거 및 공백 처리
-            if (cellValue && cellValue !== "" && cellValue !== "F") { // 헤더 문자열 "F" 제외
+            let cellValue = columns[5].replace(/^"|"$/g, '').trim();
+            if (cellValue && cellValue !== "" && cellValue !== "F") {
               const li = document.createElement('li');
               li.textContent = cellValue;
               listContainer.appendChild(li);
@@ -1618,7 +1616,7 @@
       if (gameState === 'START' && !startScreen.classList.contains('hidden')) {
         loadLeaderboard();
       }
-    }, 10000); // 3000ms -> 10000ms로 변경하여 서버 과부하 방지
+    }, 10000);
   </script>
 </body>
 
