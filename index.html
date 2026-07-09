@@ -541,7 +541,7 @@
               <span id="bgmVolumeText" style="font-size: 14px; width: 35px; text-align: right;">50%</span>
             </div>
           </div>
-          <p style="font-size: 12px; color: #aaa; text-align: right; margin: 5px 0 0 0;">* 오디오 기능은 추후 업데이트 예정입니다.</p>
+          <p style="font-size: 12px; color: #66ff66; text-align: right; margin: 5px 0 0 0;">* 오디오 기능(Web Audio API 내장 합성기)이 활성화되었습니다.</p>
         </div>
 
       </div>
@@ -654,6 +654,110 @@
     player.y = groundY - player.height;
     let obstacles = [];
     let dunes = [];
+
+    /* --- 오디오 시스템 오실레이터 방식 구현 --- */
+    let audioCtx = null;
+    let bgmGain = null;
+    let sfxGain = null;
+    let bgmInterval = null;
+
+    function initAudio() {
+      if (audioCtx) return;
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      bgmGain = audioCtx.createGain();
+      sfxGain = audioCtx.createGain();
+      bgmGain.connect(audioCtx.destination);
+      sfxGain.connect(audioCtx.destination);
+      updateVolume();
+    }
+
+    function updateVolume() {
+      if (!audioCtx) return;
+      const vol = bgmVolume.value / 100;
+      // 너무 시끄럽지 않게 계수 조절
+      bgmGain.gain.setValueAtTime(vol * 0.15, audioCtx.currentTime);
+      sfxGain.gain.setValueAtTime(vol * 0.4, audioCtx.currentTime);
+    }
+
+    function playSound(type) {
+      if (!audioCtx) return;
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(sfxGain);
+
+      if (type === 'jump') {
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(450, audioCtx.currentTime + 0.12);
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.12);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.12);
+      } else if (type === 'shoot') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+        osc.frequency.linearRampToValueAtTime(200, audioCtx.currentTime + 0.08);
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.08);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.08);
+      } else if (type === 'hit') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(180, audioCtx.currentTime);
+        osc.frequency.linearRampToValueAtTime(60, audioCtx.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.1);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.1);
+      } else if (type === 'gameover') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(220, audioCtx.currentTime);
+        osc.frequency.linearRampToValueAtTime(50, audioCtx.currentTime + 0.6);
+        gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.6);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.6);
+      }
+    }
+
+    function startBGM() {
+      if (!audioCtx) return;
+      if (bgmInterval) clearInterval(bgmInterval);
+
+      // 신비롭고 웅장한 아라비안/마이너 풍의 절제된 베이스 루프
+      const normalNotes = [147, 165, 175, 196, 220, 196, 175, 165]; 
+      const bossNotes = [110, 117, 110, 117, 131, 123, 110, 98];
+      let step = 0;
+
+      bgmInterval = setInterval(() => {
+        if (gameState !== 'PLAYING' && gameState !== 'BOSS_BATTLE') {
+          clearInterval(bgmInterval);
+          return;
+        }
+
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(bgmGain);
+
+        const isBoss = (gameState === 'BOSS_BATTLE');
+        osc.type = isBoss ? 'sawtooth' : 'triangle';
+        const currentNotes = isBoss ? bossNotes : normalNotes;
+        
+        osc.frequency.setValueAtTime(currentNotes[step % currentNotes.length], audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.38);
+
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.38);
+        step++;
+      }, 400);
+    }
+    /* ----------------------------------------------- */
+
     async function openGlobalNotice(e) {
       if (e) e.stopPropagation();
       const listContainer = document.getElementById('globalNoticeList');
@@ -757,7 +861,7 @@
       infoDiv.innerHTML = `
         <p><strong>[ 움직임 ]</strong> ${leftKey} / ${rightKey} &nbsp;&nbsp; <strong>[ 웅크리기 ]</strong> ${crouchKey} &nbsp;&nbsp; <strong>[ ESC ]</strong> 처음으로</p>
         <p><strong>[ 점프 ]</strong> ${jumpKey} &nbsp;&nbsp; <strong>[ 공격키 ]</strong> ${attackKey} &nbsp;&nbsp; 
-           <span style="color: #ffe600; font-weight: bold;">[ 업데이트 ] BGM 추가</span>
+           <span style="color: #ffe600; font-weight: bold;">[ 업데이트 ] 사운드 완벽 연동</span>
         </p>
       `;
     }
@@ -836,6 +940,7 @@
     audioSlider.addEventListener('click', (e) => e.stopPropagation());
     bgmVolume.addEventListener('input', (e) => {
       bgmVolumeText.innerText = `${e.target.value}%`;
+      updateVolume(); // 볼륨 조절 반영
     });
 
     function initDunes() {
@@ -850,12 +955,11 @@
     }
 
     function spawnObstacle(timeScale) {
-      // 난이도 완화: spawnRate 범위를 늘려 장애물 간격을 더 길게 만듬
       let spawnRate = Math.max(45, 90 - Math.floor(score / 100) * 4);
       spawnTimer += timeScale;
       if (spawnTimer >= currentSpawnTarget) {
         spawnTimer = 0;
-        currentSpawnTarget = Math.random() * 30 + spawnRate; // 랜덤 범위 추가
+        currentSpawnTarget = Math.random() * 30 + spawnRate;
         let maxSpawn = (score < 1500) ? 2 : 3;
         const spawnCount = Math.floor(Math.random() * maxSpawn) + 1;
         for (let i = 0; i < spawnCount; i++) {
@@ -897,10 +1001,12 @@
       }
     }
 
+    // 오디오 시스템 적용 부분
     function playerJump() {
       if (player.isGrounded && !player.isCrouching) {
         player.vy = player.jumpPower;
         player.isGrounded = false;
+        playSound('jump'); // 점프 사운드
       }
     }
 
@@ -914,6 +1020,7 @@
           speed: 14
         });
         player.shootCooldown = 15;
+        playSound('shoot'); // 공격 사운드
       }
     }
     gameContainer.addEventListener('mousedown', (e) => {
@@ -1333,15 +1440,14 @@
           }
         }
       } else if (!boss.leaving && boss.hp <= 0) {
-        // 즉시 종료 로직
         boss.active = false;
-        boss.projectiles = []; // 탄환 제거
+        boss.projectiles = [];
         gameState = 'PLAYING';
         bossLevel++;
         nextBossScore += 2000;
         bossWarningUI.classList.remove('warning-active');
         scoreValueUI.innerText = score;
-        return; // 즉시 종료하므로 이후 드로우 로직 건너뜀
+        return;
       }
       if (!boss.leaving) {
         for (let i = player.projectiles.length - 1; i >= 0; i--) {
@@ -1349,6 +1455,7 @@
             boss.hp -= player.damage;
             boss.hitTimer = 10;
             player.projectiles.splice(i, 1);
+            playSound('hit'); // 보스 격추 피격음
           }
         }
       }
@@ -1432,7 +1539,6 @@
       animationFrameCount += timeScale;
       drawBackground();
       updateAndDrawDunes(timeScale);
-      // 속도 로직 변경 구간
       currentGameSpeed = baseGameSpeed + (score / 250);
       let obstacleSpeed = (score > 5000) ? (baseGameSpeed + (5000 / 250)) : currentGameSpeed;
       if (gameState === 'PLAYING') {
@@ -1467,6 +1573,11 @@
     function startGame() {
       if (gameState === 'GAMEOVER' && recordSection.style.display !== 'none' && recordSection.style.display !== '') return;
       if (!howToPlayScreen.classList.contains('hidden') || !settingsScreen.classList.contains('hidden') || !globalNoticeScreen.classList.contains('hidden')) return;
+      
+      // 사용자 클릭 제스처 시 오디오 노드 활성화 및 BGM 재생
+      initAudio();
+      startBGM();
+
       gameState = 'PLAYING';
       score = 0;
       baseGameSpeed = 4.3;
@@ -1523,6 +1634,7 @@
 
     function endGame() {
       gameState = 'GAMEOVER';
+      playSound('gameover'); // 게임오버 사운드
       finalScoreText.innerText = `최종 점수 : ${score}점`;
       playerNameInput.value = '';
       recordSection.style.display = 'flex';
