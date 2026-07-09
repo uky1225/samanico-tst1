@@ -418,20 +418,33 @@
       transform: scale(1.08);
     }
 
+    /* 📢 공지사항 텍스트 중앙 정렬을 위한 CSS */
     .notice-list {
       list-style: none;
       padding: 0;
-      margin: 15px 0;
+      margin: 0;
       width: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-height: 100%;
     }
 
     .notice-list li {
-      padding: 12px;
+      padding: 20px 15px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      font-size: 15px;
+      font-size: 18px;
       line-height: 1.6;
       color: #ffffff;
-      text-align: left;
+      text-align: center;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      word-break: keep-all;
+    }
+    
+    .notice-list li:last-child {
+      border-bottom: none;
     }
   </style>
 </head>
@@ -448,10 +461,9 @@
     <div id="bossWarning">⚠ BOSS STAGE ⚠</div>
     <canvas id="gameCanvas" width="1200" height="675"></canvas>
 
-    <!-- 공지사항 화면 -->
     <div id="globalNoticeScreen" class="overlayScreen hidden">
       <h1 style="font-size: 42px; margin-bottom: 25px;">📢 실시간 사막 소식</h1>
-      <div class="manual-content" style="width: 500px; max-height: 350px; overflow-y: auto;">
+      <div class="manual-content" style="width: 500px; height: 350px; display: flex; align-items: center; justify-content: center; overflow-y: auto;">
         <ul id="globalNoticeList" class="notice-list">
           <li>공지사항을 가져오는 중입니다...</li>
         </ul>
@@ -459,7 +471,6 @@
       <button onclick="closeGlobalNotice(event)" class="ui-button">닫기</button>
     </div>
 
-    <!-- 시작 화면 -->
     <div id="startScreen" class="overlayScreen">
       <button id="globalNoticeBtn" onclick="openGlobalNotice(event)" title="📢 공지사항">📢</button>
       <h1>여정의 시작</h1>
@@ -483,7 +494,7 @@
         <p><strong>🏜️ 기본 목표:</strong> 다가오는 장애물을 피해 최대한 멀리 나아가세요. 오래 살아남을수록 속도가 점차 빨라집니다.</p>
         <p><strong>🌵 장애물:</strong> 지상 장애물은 점프(위쪽)로, 공중 장애물은 웅크리기(아래쪽)로 회피하세요.</p>
         <p><strong>🟩 초록색 발판:</strong> 초록색으로 된 발판은 점프해서 안전하게 밟고 올라갈 수 있습니다!</p>
-        <p><strong>👿 보스 전투:</strong> 1000점 단위로 보스가 등장합니다. 그 이후2000점이 지날때 마다 보스가 등장하며 보스전 중에는 설정한 <strong>[공격키]</strong>를 눌러 탄환을 발사할 수 있습니다.(보스전을 오래 끌면 불리해요.)</p>
+        <p><strong>👿 보스 전투:</strong> 1000점 단위로 보스가 등장합니다. 그 이후 2000점이 지날때 마다 보스가 등장하며 보스전 중에는 설정한 <strong>[공격키]</strong>를 눌러 탄환을 발사할 수 있습니다.</p>
         <p><strong>⚔️ 보상:</strong> 보스를 처치하면 보상을 얻고 다음 보스를 더 쉽게 물리칩니다!</p>
       </div>
       <button id="closeHowToPlayBtn" class="ui-button">닫기</button>
@@ -549,9 +560,7 @@
   </div>
 
   <script>
-    // [중요] 여기에 '웹에 게시'로 뽑아낸 구글 시트 CSV 주소를 붙여넣어
     const GOOGLE_SHEET_CSV_URL = "https://script.google.com/macros/s/AKfycbzBXe9QYuHaZTjfwMazjb-FkLjWt8c-OjkyQOr2DmS3kx2EGM7vvFy5bOl7_2CQGSkgag/exec";
-
     const SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyAdjdfX0DK3v4VvUtMJf1UeAABnaR3kljhrSPIJbaPDyWyw-vm_MfudPwPseU-X0WQFw/exec";
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
@@ -642,7 +651,7 @@
     let obstacles = [];
     let dunes = [];
 
-    // 📢 실시간 공지사항 모달 열기 함수 (F열 파싱 포함)
+    //  실시간 공지사항 모달 열기 함수 (A열 파싱으로 수정됨)
     async function openGlobalNotice(e) {
       if (e) e.stopPropagation();
       
@@ -659,16 +668,43 @@
         const response = await fetch(`${GOOGLE_SHEET_CSV_URL}?t=${Date.now()}`);
         const data = await response.text();
         
+        // 줄바꿈 기준으로 행 분리
         const lines = data.split(/\r?\n/);
         listContainer.innerHTML = ''; 
 
         let hasNotice = false;
 
-        lines.forEach(line => {
-          const columns = line.split(',');
-          if (columns.length >= 6) {
-            let cellValue = columns[5].replace(/^"|"$/g, '').trim();
-            if (cellValue && cellValue !== "" && cellValue !== "F") {
+        lines.forEach((line, index) => {
+          // 첫 번째 줄(헤더)이거나 빈 줄이면 건너뛰기
+          if (index === 0) return; 
+          if (!line.trim()) return;
+
+          const columns = [];
+          let currentVal = '';
+          let inQuotes = false;
+
+          // 정교한 CSV 열 분리 로직 (문장 내 쉼표, 따옴표 보호)
+          for (let i = 0; i < line.length; i++) {
+            let char = line[i];
+            
+            if (char === '"' && line[i + 1] === '"') {
+              currentVal += '"';
+              i++; 
+            } else if (char === '"') {
+              inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+              columns.push(currentVal.trim());
+              currentVal = '';
+            } else {
+              currentVal += char;
+            }
+          }
+          columns.push(currentVal.trim());
+
+          // 1번째 열 (인덱스 0, 즉 A열) 데이터 확인
+          if (columns.length > 0) {
+            let cellValue = columns[0];
+            if (cellValue && cellValue !== "") {
               const li = document.createElement('li');
               li.textContent = cellValue;
               listContainer.appendChild(li);
@@ -678,7 +714,7 @@
         });
 
         if (!hasNotice) {
-          listContainer.innerHTML = '<li>등록된 공지사항이 없습니다. (F열을 확인해보세요)</li>';
+          listContainer.innerHTML = '<li>등록된 공지사항이 없습니다.</li>';
         }
       } catch (error) {
         console.error('공지 로드 실패:', error);
@@ -686,7 +722,7 @@
       }
     }
 
-    // 📢 실시간 공지사항 모달 닫기 함수
+    // 실시간 공지사항 모달 닫기 함수
     function closeGlobalNotice(e) {
       if (e) e.stopPropagation();
       globalNoticeScreen.classList.add('hidden');
