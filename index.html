@@ -14,6 +14,25 @@
     }
   </script>
 
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-analytics.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDrQqpDl1FhGf3Pav4HxHFXPBWTGA34I28",
+      authDomain: "altosodysay-e6a1d.firebaseapp.com",
+      projectId: "altosodysay-e6a1d",
+      storageBucket: "altosodysay-e6a1d.firebasestorage.app",
+      messagingSenderId: "838810186387",
+      appId: "1:838810186387:web:21e8e270693eb58401136c",
+      measurementId: "G-P7EVFL1YBQ"
+    };
+
+    // 파이어베이스 초기화 실행
+    const app = initializeApp(firebaseConfig);
+    const analytics = getAnalytics(app);
+  </script>
+
   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;700&display=swap" rel="stylesheet">
   <style>
     /* 브라우저 기본 제스처 완벽 차단 CSS */
