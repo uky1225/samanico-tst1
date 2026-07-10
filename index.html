@@ -566,6 +566,7 @@
     function accurateTimer(callback, interval) {
       let expected = Date.now() + interval;
       let timeoutId;
+
       function step() {
         let dt = Date.now() - expected;
         callback();
@@ -576,7 +577,6 @@
       return () => clearTimeout(timeoutId);
     }
     // --------------------------------
-
     const GOOGLE_SHEET_CSV_URL = "https://script.google.com/macros/s/AKfycbzBXe9QYuHaZTjfwMazjb-FkLjWt8c-OjkyQOr2DmS3kx2EGM7vvFy5bOl7_2CQGSkgag/exec";
     const SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyAdjdfX0DK3v4VvUtMJf1UeAABnaR3kljhrSPIJbaPDyWyw-vm_MfudPwPseU-X0WQFw/exec";
     const canvas = document.getElementById('gameCanvas');
@@ -672,7 +672,6 @@
     let bgmGain = null;
     let sfxGain = null;
     let stopBgmTimer = null; // 수정: setInterval 변수 대체
-
     function initAudio() {
       if (audioCtx) return;
       audioCtx = new(window.AudioContext || window.webkitAudioContext)();
@@ -738,7 +737,6 @@
       const normalNotes = [147, 165, 175, 196, 220, 196, 175, 165];
       const bossNotes = [110, 117, 110, 117, 131, 123, 110, 98];
       let step = 0;
-      
       // 수정: 오차 누적이 발생하던 setInterval을 accurateTimer로 교체
       stopBgmTimer = accurateTimer(() => {
         if (gameState !== 'PLAYING' && gameState !== 'BOSS_BATTLE') {
@@ -760,7 +758,6 @@
         step++;
       }, 400);
     }
-    
     async function openGlobalNotice(e) {
       if (e) e.stopPropagation();
       const listContainer = document.getElementById('globalNoticeList');
@@ -1751,14 +1748,12 @@
     updateAndDrawPlayer();
     loadLeaderboard();
     checkNewNotices();
-    
     // 수정: setInterval 교체
     accurateTimer(() => {
       if (gameState === 'START' && !startScreen.classList.contains('hidden')) {
         loadLeaderboard();
       }
     }, 5000);
-    
     // 수정: setInterval 교체
     accurateTimer(() => {
       if (gameState === 'START' && !startScreen.classList.contains('hidden')) {
