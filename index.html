@@ -7,6 +7,7 @@
   <title>Journey of the Sands (Desert Odyssey)</title>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;700&display=swap" rel="stylesheet">
   <style>
+    /* 브라우저 기본 제스처 완벽 차단 CSS */
     html,
     body {
       touch-action: none;
@@ -445,12 +446,55 @@
       color: #ffffff;
       text-align: left;
     }
+
+    /* 실시간 자동 업데이트 알림 바 스타일 */
+    #updateBanner {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      background: linear-gradient(90deg, #00f3ff, #ffe600);
+      color: #0b0c10;
+      text-align: center;
+      padding: 12px 0;
+      font-weight: 700;
+      font-size: 15px;
+      z-index: 40;
+      letter-spacing: 1px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 15px;
+    }
+
+    #updateBanner button {
+      padding: 4px 14px;
+      background: #0b0c10;
+      color: #00f3ff;
+      border: none;
+      border-radius: 4px;
+      font-weight: bold;
+      cursor: pointer;
+      font-family: 'Noto Serif KR', serif;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    #updateBanner button:hover {
+      background: #ff0055;
+      color: white;
+    }
   </style>
-</head>
+</head>head
 
 <body>
 
   <div id="gameContainer">
+    <div id="updateBanner" class="hidden">
+      🚀 새로운 사막 업데이트 버전이 감지되었습니다! 
+      <button onclick="applyUpdate(event)">지금 반영하기</button>
+    </div>
+
     <div id="scoreBoard">SCORE <span id="scoreValue">0</span></div>
     <div id="progressContainer">
       <div id="progressBar"></div>
@@ -588,10 +632,13 @@
   </div>
 
   <script>
-    // --- 추가된 오차 보정 타이머 함수 ---
+    // --- 고유 버전을 선언하여 가상 빌드 관리 (자동 업데이트 비교용) ---
+    const GAME_VERSION = "1.0.0"; 
+
     function accurateTimer(callback, interval) {
       let expected = Date.now() + interval;
       let timeoutId;
+
       function step() {
         let dt = Date.now() - expected;
         callback();
@@ -602,37 +649,8 @@
       return () => clearTimeout(timeoutId);
     }
     
-    // --- 오프라인 동기화 엔진 설정 ---
     const GOOGLE_SHEET_CSV_URL = "https://script.google.com/macros/s/AKfycbzBXe9QYuHaZTjfwMazjb-FkLjWt8c-OjkyQOr2DmS3kx2EGM7vvFy5bOl7_2CQGSkgag/exec";
     const SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyAdjdfX0DK3v4VvUtMJf1UeAABnaR3kljhrSPIJbaPDyWyw-vm_MfudPwPseU-X0WQFw/exec";
-    const SYNC_KEY = 'desertOdyssey_pendingRecords';
-
-    // 서버 전송 함수
-    async function sendToServer(record) {
-      try {
-        const response = await fetch(`${SHEET_WEB_APP_URL}?action=insert&name=${encodeURIComponent(record.name)}&score=${record.score}`);
-        return response.ok;
-      } catch (err) {
-        console.error("서버 전송 실패:", err);
-        return false;
-      }
-    }
-
-    // 온라인 복구 시 동기화
-    window.addEventListener('online', async () => {
-      let pending = JSON.parse(localStorage.getItem(SYNC_KEY) || '[]');
-      if (pending.length > 0) {
-        console.log("인터넷 연결 복구: 오프라인 기록 동기화 시작...");
-        let newPending = [];
-        for (let record of pending) {
-          const success = await sendToServer(record);
-          if (!success) newPending.push(record);
-        }
-        localStorage.setItem(SYNC_KEY, JSON.stringify(newPending));
-        loadLeaderboard(); // 기록 갱신
-      }
-    });
-
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const scoreValueUI = document.getElementById('scoreValue');
@@ -656,7 +674,6 @@
     const playerNameInput = document.getElementById('playerName');
     const saveScoreBtn = document.getElementById('saveScoreBtn');
     const skipSaveBtn = document.getElementById('skipSaveBtn');
-    
     let gameState = 'START';
     let animationId;
     let score = 0;
@@ -812,13 +829,17 @@
         step++;
       }, 400);
     }
-    
+
     async function openGlobalNotice(e) {
       if (e) e.stopPropagation();
       const listContainer = document.getElementById('globalNoticeList');
       const badge = document.getElementById('noticeBadge');
       globalNoticeScreen.classList.remove('hidden');
       listContainer.innerHTML = '<li>최신 사막 소식을 불러오는 중...</li>';
+      if (!GOOGLE_SHEET_CSV_URL || GOOGLE_SHEET_CSV_URL.includes("YOUR_GOOGLE_SHEET")) {
+        listContainer.innerHTML = '<li style="color:#ffe600;">[설정 필요] 공지사항 URL 주소를 등록해주세요.</li>';
+        return;
+      }
       try {
         const response = await fetch(`${GOOGLE_SHEET_CSV_URL}?action=getNotice&t=${Date.now()}`);
         const data = await response.json();
@@ -835,10 +856,11 @@
           listContainer.innerHTML = '<li>등록된 공지사항이 없습니다.</li>';
         }
       } catch (error) {
-        listContainer.innerHTML = '<li style="color:#ff0055;">소식을 불러오지 못했습니다.</li>';
+        console.error('공지 로드 실패:', error);
+        listContainer.innerHTML = '<li style="color:#ff0055;">소식을 불러오지 못했습니다. 앱스 스크립트 웹앱 주소 및 배포 상태를 확인해주세요.</li>';
       }
     }
-    
+
     async function checkNewNotices() {
       const badge = document.getElementById('noticeBadge');
       try {
@@ -846,10 +868,35 @@
         const data = await response.json();
         if (Array.isArray(data) && data.length > 0) {
           const lastSeen = localStorage.getItem('lastViewedNotice');
-          if (lastSeen !== data[0]) badge.style.display = 'flex';
-          else badge.style.display = 'none';
+          if (lastSeen !== data[0]) {
+            badge.style.display = 'flex';
+          } else {
+            badge.style.display = 'none';
+          }
         }
-      } catch (err) {}
+      } catch (err) {
+        console.error("공지 확인 실패:", err);
+      }
+    }
+
+    // --- [추가 기능 1] 새로고침 없이 백그라운드 실시간 업데이트 감지 로직 ---
+    async function checkGameUpdate() {
+      try {
+        // 웹앱에 action=getVersion을 호출하여 가상 시트 서버에 등록된 최신 버전 문자열을 대조합니다.
+        const response = await fetch(`${SHEET_WEB_APP_URL}?action=getVersion&t=${Date.now()}`);
+        const data = await response.json();
+        if (data && data.version && data.version !== GAME_VERSION) {
+          document.getElementById('updateBanner').classList.remove('hidden');
+        }
+      } catch (err) {
+        console.log("업데이트 확인 대기 중 (네트워크 보류)");
+      }
+    }
+
+    function applyUpdate(e) {
+      if (e) e.stopPropagation();
+      // 브라우저의 무거운 캐시 데이터를 우회하여 클라이언트를 강제 최신화합니다.
+      window.location.reload();
     }
 
     function closeGlobalNotice(e) {
@@ -872,10 +919,14 @@
 
     function translateKeyToKorean(keyCode) {
       const map = {
-        'ArrowLeft': '←', 'ArrowRight': '→', 'ArrowUp': '↑', 'ArrowDown': '↓',
-        'Space': '스페이스바', 'Escape': 'ESC', 'Enter': '엔터'
+        'ArrowLeft': '←', 'ArrowRight': '→', 'ArrowUp': '↑', 'ArrowDown': '↓', 'Space': '스페이스바',
+        'Escape': 'ESC', 'Enter': '엔터', 'ControlLeft': '왼쪽 Ctrl', 'ControlRight': '오른쪽 Ctrl',
+        'ShiftLeft': '왼쪽 Shift', 'ShiftRight': '오른쪽 Shift', 'AltLeft': '왼쪽 Alt', 'AltRight': '오른쪽 Alt',
+        'KeyW': 'W', 'KeyA': 'A', 'KeyS': 'S', 'KeyD': 'D'
       };
       if (map[keyCode]) return map[keyCode];
+      if (keyCode.startsWith('Key')) return keyCode.replace('Key', '');
+      if (keyCode.startsWith('Digit')) return keyCode.replace('Digit', '');
       return keyCode;
     }
 
@@ -888,8 +939,10 @@
       const crouchKey = translateKeyToKorean(keyBindings.crouch);
       const attackKey = translateKeyToKorean(keyBindings.attack);
       infoDiv.innerHTML = `
-        <p><strong>[ 움직임 ]</strong> ${leftKey} / ${rightKey} &nbsp;&nbsp; <strong>[ 웅크리기 ]</strong> ${crouchKey}</p>
-        <p><strong>[ 점프 ]</strong> ${jumpKey} &nbsp;&nbsp; <strong>[ 공격 ]</strong> ${attackKey}</p>
+        <p><strong>[ 움직임(슬라이드) ]</strong> ${leftKey} / ${rightKey} &nbsp;&nbsp; <strong>[ 웅크리기(슬라이드) ]</strong> ${crouchKey} &nbsp;&nbsp; <strong>[ ESC ]</strong> 처음으로</p>
+        <p><strong>[ 점프(슬라이드,터치) ]</strong> ${jumpKey} &nbsp;&nbsp; <strong>[ 공격 ]</strong> ${attackKey},터치 &nbsp;&nbsp; 
+           <span style="color: #00f3ff; font-weight: bold;">[ 보안 ] 오프라인 안심 방어막 작동 중</span>
+        </p>
       `;
     }
 
@@ -898,23 +951,74 @@
         const action = btn.dataset.action;
         const currentKey = keyBindings[action];
         btn.innerText = translateKeyToKorean(currentKey);
-        if (rebindingAction !== action) btn.classList.remove('waiting');
+        if (rebindingAction !== action) {
+          btn.classList.remove('waiting');
+        }
       });
     }
-    
-    // UI 이벤트 리스너들
-    howToPlayBtn.addEventListener('click', (e) => { e.stopPropagation(); startScreen.classList.add('hidden'); howToPlayScreen.classList.remove('hidden'); });
-    closeHowToPlayBtn.addEventListener('click', (e) => { e.stopPropagation(); howToPlayScreen.classList.add('hidden'); startScreen.classList.remove('hidden'); });
-    settingsBtn.addEventListener('click', (e) => { e.stopPropagation(); updateRebindButtonsUI(); startScreen.classList.add('hidden'); settingsScreen.classList.remove('hidden'); });
-    closeSettingsBtn.addEventListener('click', (e) => { e.stopPropagation(); rebindingAction = null; updateRebindButtonsUI(); settingsScreen.classList.add('hidden'); startScreen.classList.remove('hidden'); });
-    
+
+    howToPlayBtn.addEventListener('mousedown', (e) => e.stopPropagation());
+    howToPlayBtn.addEventListener('touchstart', (e) => e.stopPropagation());
+    howToPlayBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      startScreen.classList.add('hidden');
+      howToPlayScreen.classList.remove('hidden');
+    });
+    closeHowToPlayBtn.addEventListener('mousedown', (e) => e.stopPropagation());
+    closeHowToPlayBtn.addEventListener('touchstart', (e) => e.stopPropagation());
+    closeHowToPlayBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      howToPlayScreen.classList.add('hidden');
+      startScreen.classList.remove('hidden');
+    });
+    settingsBtn.addEventListener('mousedown', (e) => e.stopPropagation());
+    settingsBtn.addEventListener('touchstart', (e) => e.stopPropagation());
+    settingsBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      updateRebindButtonsUI();
+      startScreen.classList.add('hidden');
+      settingsScreen.classList.remove('hidden');
+    });
+    closeSettingsBtn.addEventListener('mousedown', (e) => e.stopPropagation());
+    closeSettingsBtn.addEventListener('touchstart', (e) => e.stopPropagation());
+    closeSettingsBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      rebindingAction = null;
+      updateRebindButtonsUI();
+      updateControlInfoUI();
+      settingsScreen.classList.add('hidden');
+      startScreen.classList.remove('hidden');
+    });
+    resetSettingsBtn.addEventListener('mousedown', (e) => e.stopPropagation());
+    resetSettingsBtn.addEventListener('touchstart', (e) => e.stopPropagation());
+    resetSettingsBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      rebindingAction = null;
+      keyBindings = { ...DEFAULT_BINDINGS };
+      localStorage.setItem('desert_odyssey_keys', JSON.stringify(keyBindings));
+      updateRebindButtonsUI();
+      updateControlInfoUI();
+    });
+
     document.querySelectorAll('.rebind-btn').forEach(btn => {
+      btn.addEventListener('mousedown', (e) => e.stopPropagation());
+      btn.addEventListener('touchstart', (e) => e.stopPropagation());
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
+        if (rebindingAction) {
+          const prevBtn = document.querySelector(`.rebind-btn[data-action="${rebindingAction}"]`);
+          if (prevBtn) prevBtn.classList.remove('waiting');
+        }
         rebindingAction = btn.dataset.action;
         btn.classList.add('waiting');
         btn.innerText = '키를 누르세요...';
       });
+    });
+
+    settingsScreen.querySelectorAll('input[type="range"]').forEach(slider => {
+      slider.addEventListener('mousedown', (e) => e.stopPropagation());
+      slider.addEventListener('touchstart', (e) => e.stopPropagation());
+      slider.addEventListener('click', (e) => e.stopPropagation());
     });
 
     function setupVolumeSlider(id, key) {
@@ -936,7 +1040,13 @@
 
     function initDunes() {
       dunes = [];
-      for (let i = 0; i < 3; i++) dunes.push({ x: i * (canvas.width / 1.5), y: groundY, width: canvas.width * 2.0, speed: currentGameSpeed * 0.4, offset: Math.random() * 100 });
+      for (let i = 0; i < 3; i++) dunes.push({
+        x: i * (canvas.width / 1.5),
+        y: groundY,
+        width: canvas.width * 2.0,
+        speed: currentGameSpeed * 0.4,
+        offset: Math.random() * 100
+      });
     }
 
     function spawnObstacle(timeScale) {
@@ -945,14 +1055,27 @@
       if (spawnTimer >= currentSpawnTarget) {
         spawnTimer = 0;
         currentSpawnTarget = Math.random() * 30 + spawnRate;
-        const rand = Math.random();
-        if (rand < 0.25) obstacles.push({ x: canvas.width + 50, y: groundY - 60, width: 100, height: 16, type: 'platform' });
-        else if (rand < 0.45) obstacles.push({ x: canvas.width + 50, y: groundY - 110, width: 40, height: 22, type: 'high_air' });
-        else if (rand < 0.7) obstacles.push({ x: canvas.width + 50, y: groundY - 55, width: 40, height: 22, type: 'air' });
-        else {
-          const width = Math.random() * 15 + 25;
-          const height = Math.random() * 20 + 30;
-          obstacles.push({ x: canvas.width + 50, y: groundY - height, width: width, height: height, type: 'ground' });
+        let maxSpawn = (score < 1500) ? 2 : 3;
+        const spawnCount = Math.floor(Math.random() * maxSpawn) + 1;
+        for (let i = 0; i < spawnCount; i++) {
+          const rand = Math.random();
+          const xOffset = i * (Math.random() * 70 + 45);
+          if (rand < 0.25) obstacles.push({
+            x: canvas.width + xOffset, y: groundY - 60, width: 100, height: 16, type: 'platform'
+          });
+          else if (rand < 0.45) obstacles.push({
+            x: canvas.width + xOffset, y: groundY - 110, width: 40, height: 22, type: 'high_air'
+          });
+          else if (rand < 0.7) obstacles.push({
+            x: canvas.width + xOffset, y: groundY - 55, width: 40, height: 22, type: 'air'
+          });
+          else {
+            const width = Math.random() * 15 + 25;
+            const height = Math.random() * 20 + 30;
+            obstacles.push({
+              x: canvas.width + xOffset, y: groundY - height, width: width, height: height, type: 'ground'
+            });
+          }
         }
       }
     }
@@ -967,141 +1090,632 @@
 
     function playerShoot() {
       if (gameState === 'BOSS_BATTLE' && player.shootCooldown <= 0) {
-        player.projectiles.push({ x: player.x + player.width, y: player.y + player.height / 2 - 4, width: 25, height: 8, speed: 14 });
+        player.projectiles.push({
+          x: player.x + player.width, y: player.y + player.height / 2 - 4, width: 25, height: 8, speed: 14
+        });
         player.shootCooldown = 15;
         playSound('shoot');
       }
     }
 
-    // 게임 루프 및 주요 로직들 (생략 없이 포함)
+    gameContainer.addEventListener('mousedown', (e) => {
+      if (e.target.tagName.toLowerCase() === 'input' || e.target.tagName.toLowerCase() === 'button' || e.target.tagName.toLowerCase() === 'select') return;
+      if (!howToPlayScreen.classList.contains('hidden') || !settingsScreen.classList.contains('hidden') || !globalNoticeScreen.classList.contains('hidden')) return;
+      if (gameState === 'START' || gameState === 'GAMEOVER') {
+        if (recordSection.style.display !== 'none' && gameState === 'GAMEOVER') return;
+        startGame();
+      } else if (gameState === 'PLAYING' || gameState === 'BOSS_BATTLE') {
+        if (gameState === 'BOSS_BATTLE') playerShoot();
+        else playerJump();
+      }
+    });
+
+    let touchStartX = 0, touchStartY = 0, lastTouchX = 0, lastTouchY = 0, touchXDelta = 0;
+    let isTouching = false, swipeUpDist = 0, swipeDownDist = 0;
+
+    gameContainer.addEventListener('touchstart', (e) => {
+      if (e.target.tagName.toLowerCase() === 'input' || e.target.tagName.toLowerCase() === 'button' || e.target.tagName.toLowerCase() === 'select') return;
+      if (gameState === 'PLAYING' || gameState === 'BOSS_BATTLE') e.preventDefault();
+      isTouching = true;
+      const touch = e.changedTouches[0];
+      touchStartX = touch.clientX; touchStartY = touch.clientY;
+      lastTouchX = touch.clientX; lastTouchY = touch.clientY;
+      touchXDelta = 0; swipeUpDist = 0; swipeDownDist = 0;
+    }, { passive: false });
+
+    gameContainer.addEventListener('touchmove', (e) => {
+      if (e.target.tagName.toLowerCase() === 'input' || e.target.tagName.toLowerCase() === 'button' || e.target.tagName.toLowerCase() === 'select') return;
+      if (gameState !== 'PLAYING' && gameState !== 'BOSS_BATTLE') return;
+      e.preventDefault();
+      const touch = e.changedTouches[0];
+      const currentX = touch.clientX; const currentY = touch.clientY;
+      touchXDelta += (currentX - lastTouchX);
+      lastTouchX = currentX;
+      const deltaY = currentY - lastTouchY;
+      lastTouchY = currentY;
+      if (deltaY < 0) {
+        swipeUpDist += Math.abs(deltaY);
+        swipeDownDist = 0;
+        if (swipeUpDist > 25) {
+          playerJump();
+          swipeUpDist = 0;
+          if (player.isCrouching) {
+            player.isCrouching = false;
+            player.height = player.normalHeight;
+            player.y -= (player.normalHeight - player.crouchHeight);
+          }
+        }
+      } else if (deltaY > 0) {
+        swipeDownDist += deltaY;
+        swipeUpDist = 0;
+        if (swipeDownDist > 25) {
+          if (!player.isCrouching) {
+            player.isCrouching = true;
+            player.height = player.crouchHeight;
+            player.y += (player.normalHeight - player.crouchHeight);
+          }
+        }
+      }
+      if (player.isCrouching && deltaY < -1.5) {
+        player.isCrouching = false;
+        player.height = player.normalHeight;
+        player.y -= (player.normalHeight - player.crouchHeight);
+        swipeDownDist = 0;
+      }
+    }, { passive: false });
+
+    gameContainer.addEventListener('touchend', (e) => {
+      if (e.target.tagName.toLowerCase() === 'input' || e.target.tagName.toLowerCase() === 'button' || e.target.tagName.toLowerCase() === 'select') return;
+      if (e.touches.length === 0) {
+        isTouching = false; touchXDelta = 0;
+        keyStates.moveLeft = false; keyStates.moveRight = false;
+        if (player.isCrouching) {
+          player.isCrouching = false;
+          player.height = player.normalHeight;
+          player.y -= (player.normalHeight - player.crouchHeight);
+        }
+      }
+      if (!howToPlayScreen.classList.contains('hidden') || !settingsScreen.classList.contains('hidden') || !globalNoticeScreen.classList.contains('hidden')) return;
+      const touch = e.changedTouches[0];
+      const diffX = touch.clientX - touchStartX;
+      const diffY = touch.clientY - touchStartY;
+      const tapThreshold = 15;
+      if (Math.abs(diffX) < tapThreshold && Math.abs(diffY) < tapThreshold) {
+        if (gameState === 'START' || gameState === 'GAMEOVER') {
+          if (recordSection.style.display !== 'none' && gameState === 'GAMEOVER') return;
+          startGame();
+          return;
+        }
+        if (gameState === 'PLAYING' || gameState === 'BOSS_BATTLE') {
+          if (gameState === 'BOSS_BATTLE') playerShoot();
+          else playerJump();
+        }
+      }
+    }, { passive: false });
+
     document.addEventListener('keydown', (e) => {
       if (rebindingAction) {
         e.preventDefault();
-        keyBindings[rebindingAction] = e.code;
+        const pressedKey = e.code;
+        keyBindings[rebindingAction] = pressedKey;
         localStorage.setItem('desert_odyssey_keys', JSON.stringify(keyBindings));
         rebindingAction = null;
         updateRebindButtonsUI();
+        updateControlInfoUI();
         return;
       }
-      if (e.code === 'Enter') {
+      if (!howToPlayScreen.classList.contains('hidden')) {
+        if (e.code === 'Escape' || e.key === 'Escape') closeHowToPlayBtn.click();
+        return;
+      }
+      if (!settingsScreen.classList.contains('hidden')) {
+        if (e.code === 'Escape' || e.key === 'Escape') closeSettingsBtn.click();
+        return;
+      }
+      if (!globalNoticeScreen.classList.contains('hidden')) {
+        if (e.code === 'Escape' || e.key === 'Escape') closeGlobalNotice();
+        return;
+      }
+      if (e.code === 'Escape' || e.key === 'Escape') {
+        if (gameState === 'PLAYING' || gameState === 'BOSS_BATTLE') {
+          resetToStartScreen();
+          return;
+        }
+      }
+      if (e.code === 'Enter' || e.key === 'Enter') {
+        if (gameState === 'GAMEOVER' && recordSection.style.display !== 'none') return;
+        e.preventDefault();
         if (gameState === 'START' || gameState === 'GAMEOVER') startGame();
       }
-      if (e.code === keyBindings.jump) playerJump();
-      if (e.code === keyBindings.attack && gameState === 'BOSS_BATTLE') playerShoot();
+      if (e.code === keyBindings.moveLeft || e.code === 'ArrowLeft') { e.preventDefault(); keyStates.moveLeft = true; }
+      if (e.code === keyBindings.moveRight || e.code === 'ArrowRight') { e.preventDefault(); keyStates.moveRight = true; }
+      if (e.code === keyBindings.jump || e.code === 'ArrowUp') {
+        e.preventDefault();
+        if (gameState === 'START' || gameState === 'GAMEOVER') {
+          if (recordSection.style.display !== 'none' && gameState === 'GAMEOVER') return;
+          startGame();
+        } else { playerJump(); }
+      }
+      if (e.code === keyBindings.attack || e.code === 'Space') {
+        e.preventDefault();
+        if (gameState === 'START' || gameState === 'GAMEOVER') {
+          if (recordSection.style.display !== 'none' && gameState === 'GAMEOVER') return;
+          startGame();
+        } else {
+          playerJump();
+          if (gameState === 'BOSS_BATTLE') playerShoot();
+        }
+      }
+      if (e.code === keyBindings.crouch || e.code === 'ArrowDown') {
+        e.preventDefault();
+        if ((gameState === 'PLAYING' || gameState === 'BOSS_BATTLE') && !player.isCrouching) {
+          player.isCrouching = true;
+          player.height = player.crouchHeight;
+          player.y += (player.normalHeight - player.crouchHeight);
+        }
+      }
     });
 
+    document.addEventListener('keyup', (e) => {
+      if (e.code === keyBindings.crouch || e.code === 'ArrowDown') {
+        e.preventDefault();
+        if (player.isCrouching) {
+          player.isCrouching = false;
+          player.height = player.normalHeight;
+          player.y -= (player.normalHeight - player.crouchHeight);
+        }
+      }
+      if (e.code === keyBindings.moveLeft || e.code === 'ArrowLeft') keyStates.moveLeft = false;
+      if (e.code === keyBindings.moveRight || e.code === 'ArrowRight') keyStates.moveRight = false;
+    });
+
+    function checkCollision(rect1, rect2) {
+      const paddingX = 4; const paddingY = 4;
+      if (rect2.type === 'platform') {
+        return (rect1.x + paddingX < rect2.x + rect2.width && rect1.x + rect1.width - paddingX > rect2.x &&
+          rect1.y + paddingY < rect2.y + rect2.height && rect1.y + rect1.height > rect2.y + 10);
+      }
+      return (rect1.x + paddingX < rect2.x + rect2.width && rect1.x + rect1.width - paddingX > rect2.x &&
+        rect1.y + paddingY < rect2.y + rect2.height && rect1.y + rect1.height > rect2.y);
+    }
+
+    function checkProjectileCollision(proj, target) {
+      return (proj.x < target.x + target.width && proj.x + proj.width > target.x &&
+        proj.y < target.y + target.height && proj.y + proj.height > target.y);
+    }
+
+    function drawBackground() {
+      if (gameState === 'BOSS_BATTLE') {
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.15)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      } else {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+      ctx.fillStyle = '#4a154b';
+      ctx.beginPath();
+      ctx.moveTo(0, groundY);
+      for (let i = 0; i <= canvas.width + 150; i += 50) {
+        ctx.lineTo(i, groundY - 120 - Math.sin((i + animationFrameCount * 0.5) * 0.01) * 35);
+      }
+      ctx.lineTo(canvas.width + 150, canvas.height);
+      ctx.lineTo(0, canvas.height);
+      ctx.fill();
+    }
+
+    function updateAndDrawDunes(timeScale = 1) {
+      ctx.fillStyle = '#220b29';
+      ctx.beginPath();
+      ctx.moveTo(0, canvas.height);
+      dunes.forEach(d => {
+        if (gameState === 'PLAYING' || gameState === 'BOSS_BATTLE') d.x -= (currentGameSpeed * 0.4) * timeScale;
+        if (d.x <= -d.width) d.x += d.width * 2;
+        const dx = d.x; const dy = d.y;
+        ctx.lineTo(dx, dy - Math.sin(d.offset) * 20);
+        ctx.bezierCurveTo(dx + d.width * 0.3, dy - 60, dx + d.width * 0.7, dy - 60, dx + d.width, dy);
+      });
+      ctx.lineTo(canvas.width + 300, canvas.height);
+      ctx.lineTo(0, canvas.height);
+      ctx.fill();
+      ctx.fillStyle = '#110515';
+      ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
+    }
+
+    function updateAndDrawPlayer(timeScale = 1) {
+      if (gameState === 'PLAYING' || gameState === 'BOSS_BATTLE') {
+        if (isTouching) {
+          const threshold = 0.5;
+          if (touchXDelta > threshold) { keyStates.moveRight = true; keyStates.moveLeft = false; }
+          else if (touchXDelta < -threshold) { keyStates.moveLeft = true; keyStates.moveRight = false; }
+          else { keyStates.moveLeft = false; keyStates.moveRight = false; }
+          touchXDelta = 0;
+        }
+        if (keyStates.moveLeft) player.x -= player.speedX * timeScale;
+        if (keyStates.moveRight) player.x += player.speedX * timeScale;
+        if (player.x < 20) player.x = 20;
+        if (player.x + player.width > canvas.width - 20) player.x = canvas.width - player.width - 20;
+        if (player.shootCooldown > 0) player.shootCooldown -= timeScale;
+        let targetFloor = groundY;
+        for (let obs of obstacles) {
+          if (obs.type === 'platform') {
+            let pRight = player.x + player.width;
+            let pLeft = player.x;
+            let prevBottom = (player.y + player.height) - (player.vy * timeScale);
+            if (pRight - 4 > obs.x && pLeft + 4 < obs.x + obs.width) {
+              if (player.vy >= 0 && prevBottom <= obs.y + 10) targetFloor = obs.y;
+            }
+          }
+        }
+        player.vy += player.gravity * timeScale;
+        player.y += player.vy * timeScale;
+        if (player.y + player.height >= targetFloor) {
+          player.y = targetFloor - player.height;
+          player.vy = 0;
+          player.isGrounded = true;
+        } else { player.isGrounded = false; }
+        let shiftedTrail = null;
+        if (player.trail.length >= 15) shiftedTrail = player.trail.shift();
+        if (shiftedTrail) {
+          shiftedTrail.x = player.x; shiftedTrail.y = player.y + (player.isCrouching ? 5 : 10);
+          player.trail.push(shiftedTrail);
+        } else {
+          player.trail.push({ x: player.x, y: player.y + (player.isCrouching ? 5 : 10) });
+        }
+      }
+      if (player.trail.length > 0) {
+        ctx.beginPath();
+        ctx.moveTo(player.trail[0].x, player.trail[0].y);
+        for (let i = 1; i < player.trail.length; i++) {
+          ctx.lineTo(player.trail[i].x - (player.trail.length - i) * 2, player.trail[i].y + Math.sin(animationFrameCount * 0.2 + i) * 3);
+        }
+        ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.stroke();
+      }
+      ctx.shadowBlur = 0; ctx.fillStyle = '#ffffff';
+      ctx.fillRect(player.x, player.y + 5, player.width, player.height - 5);
+      ctx.beginPath(); ctx.arc(player.x + player.width / 2, player.y + 2, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#d46c63'; ctx.fillRect(player.x - 5, player.y + player.height - 3, player.width + 10, 4);
+      for (let i = player.projectiles.length - 1; i >= 0; i--) {
+        let p = player.projectiles[i];
+        p.x += p.speed * timeScale;
+        ctx.fillStyle = '#ffe600'; ctx.shadowColor = '#ffe600'; ctx.shadowBlur = 10;
+        ctx.fillRect(p.x, p.y, p.width, p.height);
+        ctx.fillStyle = '#ffffff'; ctx.shadowBlur = 0; ctx.fillRect(p.x + 4, p.y + 2, p.width - 8, p.height - 4);
+        if (p.x > canvas.width) player.projectiles.splice(i, 1);
+      }
+    }
+
+    function updateAndDrawObstacles(timeScale, speed) {
+      for (let i = 0; i < obstacles.length; i++) {
+        let obs = obstacles[i];
+        if (gameState === 'PLAYING' || gameState === 'BOSS_BATTLE') obs.x -= speed * timeScale;
+        const x = obs.x; const y = obs.y;
+        ctx.shadowBlur = 15;
+        if (obs.type === 'ground') {
+          ctx.fillStyle = '#ffe600'; ctx.shadowColor = '#ffe600'; ctx.beginPath();
+          ctx.moveTo(x, y + obs.height); ctx.lineTo(x + obs.width / 2, y); ctx.lineTo(x + obs.width, y + obs.height); ctx.fill();
+        } else if (obs.type === 'platform') {
+          ctx.fillStyle = '#00ff00'; ctx.shadowColor = '#00ff00'; ctx.fillRect(x, y, obs.width, obs.height);
+          ctx.shadowBlur = 0; ctx.fillStyle = '#ffffff'; ctx.fillRect(x + 4, y + 4, obs.width - 8, obs.height - 8);
+        } else if (obs.type === 'high_air') {
+          ctx.fillStyle = '#ff00ff'; ctx.shadowColor = '#ff00ff'; ctx.fillRect(x, y, obs.width, obs.height);
+          ctx.shadowBlur = 0; ctx.fillStyle = '#ffffff'; ctx.fillRect(x + 6, y + 4, obs.width - 12, obs.height - 8);
+        } else {
+          ctx.fillStyle = '#00f3ff'; ctx.shadowColor = '#00f3ff'; ctx.fillRect(x, y, obs.width, obs.height);
+          ctx.shadowBlur = 0; ctx.fillStyle = '#ffffff'; ctx.fillRect(x + 8, y + 6, obs.width - 16, obs.height - 12);
+        }
+        ctx.shadowBlur = 0;
+        if ((gameState === 'PLAYING' || gameState === 'BOSS_BATTLE') && checkCollision(player, obs)) endGame();
+        if (obs.x + obs.width < 0) { obstacles.splice(i, 1); i--; }
+      }
+    }
+
+    function updateAndDrawBoss(timeScale) {
+      if (!boss.active) return;
+      if (boss.x > canvas.width - 180 && !boss.leaving) boss.x -= 3 * timeScale;
+      else if (boss.leaving) boss.x += 5 * timeScale;
+      else { boss.y = (canvas.height / 2 - 50) + Math.sin(animationFrameCount * 0.05) * 60; }
+      if (boss.hp > 0 && !boss.leaving && boss.x <= canvas.width - 180) {
+        boss.shootTimer += timeScale;
+        let currentShootInterval = 110 - (bossLevel * 1);
+        if (currentShootInterval < 70) currentShootInterval = 35;
+        if (boss.shootTimer > currentShootInterval) {
+          boss.shootTimer = 0;
+          let spawnCount = (score >= 5000) ? 3 : (score >= 3000) ? 2 : 1;
+          const r = Math.random();
+          let targetY = (r < 0.33) ? groundY - 20 : (r < 0.66) ? groundY - 40 : groundY - 110;
+          boss.projectiles.push({
+            x: boss.x, y: targetY, width: 50, height: 16, speed: currentGameSpeed * 0.4 + (bossLevel * 0.34)
+          });
+          if (spawnCount >= 2) {
+            let targetY2 = (Math.random() < 0.5) ? groundY - 40 : groundY - 20;
+            boss.projectiles.push({
+              x: boss.x + 60, y: targetY2, width: 50, height: 16, speed: currentGameSpeed * 0.3 + (bossLevel * 0.3)
+            });
+          }
+          if (spawnCount === 3) {
+            let targetY3 = (Math.random() < 0.5) ? groundY - 110 : groundY - 40;
+            boss.projectiles.push({
+              x: boss.x + 120, y: targetY3, width: 50, height: 16, speed: currentGameSpeed * 0.25 + (bossLevel * 0.25)
+            });
+          }
+        }
+      } else if (!boss.leaving && boss.hp <= 0) {
+        boss.active = false; boss.projectiles = []; gameState = 'PLAYING';
+        bossLevel++; nextBossScore += 2000; bossWarningUI.classList.remove('warning-active');
+        scoreValueUI.innerText = score; return;
+      }
+      if (!boss.leaving) {
+        for (let i = player.projectiles.length - 1; i >= 0; i--) {
+          if (checkProjectileCollision(player.projectiles[i], boss)) {
+            boss.hp -= player.damage; boss.hitTimer = 10;
+            player.projectiles.splice(i, 1); playSound('hit');
+          }
+        }
+      }
+      const bx = boss.x; const by = boss.y;
+      if (boss.hitTimer > 0) {
+        ctx.fillStyle = '#ffffff'; ctx.shadowColor = '#ffffff'; boss.hitTimer -= timeScale;
+      } else { ctx.fillStyle = '#110515'; ctx.shadowColor = '#ff0055'; }
+      ctx.shadowBlur = 20 + Math.sin(animationFrameCount * 0.1) * 10;
+      ctx.beginPath(); ctx.moveTo(bx + boss.width / 2, by); ctx.lineTo(bx + boss.width, by + boss.height / 2);
+      ctx.lineTo(bx + boss.width / 2, by + boss.height); ctx.lineTo(bx, by + boss.height / 2); ctx.fill();
+      ctx.fillStyle = '#ff0055'; ctx.beginPath(); ctx.arc(bx + boss.width / 2, by + boss.height / 2, 18, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(bx + boss.width / 2, by + boss.height / 2, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+      if (boss.hp > 0 && !boss.leaving) {
+        ctx.fillStyle = '#ffffff'; ctx.font = 'bold 24px "Noto Serif KR"'; ctx.textAlign = 'center';
+        ctx.fillText(`HP: ${Math.max(0, boss.hp)}`, bx + boss.width / 2, by - 25);
+        ctx.font = 'normal 15px "Noto Serif KR"'; ctx.fillStyle = '#ffe600';
+        ctx.fillText(`DAMAGE: ${player.damage}`, bx + boss.width / 2, by - 55);
+      }
+      for (let i = boss.projectiles.length - 1; i >= 0; i--) {
+        let p = boss.projectiles[i]; p.x -= p.speed * timeScale;
+        ctx.fillStyle = '#ff0055'; ctx.shadowColor = '#ff0055'; ctx.shadowBlur = 15; ctx.fillRect(p.x, p.y, p.width, p.height);
+        ctx.fillStyle = '#ffffff'; ctx.shadowBlur = 0; ctx.fillRect(p.x + 5, p.y + 3, p.width - 10, p.height - 6);
+        if (checkCollision(player, p)) endGame();
+        if (p.x + p.width < 0) boss.projectiles.splice(i, 1);
+      }
+      if (boss.leaving && boss.x > canvas.width && boss.projectiles.length === 0) {
+        boss.active = false; gameState = 'PLAYING'; bossLevel++; nextBossScore += 2000;
+        bossWarningUI.classList.remove('warning-active');
+      }
+    }
+
+    function addScore() {
+      score += 1;
+      scoreValueUI.innerText = score;
+      let progressPercent = Math.min((score / 10000) * 100, 100);
+      progressBar.style.width = `${progressPercent}%`;
+      progressMarker.style.left = `${progressPercent}%`;
+    }
+
     function loop(timestamp) {
-      if (gameState !== 'GAMEOVER' && gameState !== 'START') animationId = requestAnimationFrame(loop);
-      if (!lastTime) lastTime = timestamp;
+      if (gameState !== 'GAMEOVER' && gameState !== 'START') {
+        animationId = requestAnimationFrame(loop);
+      }
+      if (!timestamp) timestamp = performance.now();
+      if (!lastTime) timestamp = performance.now();
       let deltaTime = timestamp - lastTime;
       if (deltaTime > 50) deltaTime = 50;
       lastTime = timestamp;
       const timeScale = deltaTime / 16.67;
       animationFrameCount += timeScale;
-
-      // 배경 및 게임 로직 실행
       drawBackground();
       updateAndDrawDunes(timeScale);
-      
       currentGameSpeed = baseGameSpeed + (score / 170);
+      let obstacleSpeed = (score > 8000) ? (baseGameSpeed + (7000 / 400)) : currentGameSpeed;
       if (gameState === 'PLAYING') {
         spawnObstacle(timeScale);
         if (score >= nextBossScore) {
-          gameState = 'BOSS_BATTLE';
-          boss.active = true;
-          bossWarningUI.classList.add('warning-active');
+          gameState = 'BOSS_BATTLE'; boss.active = true; boss.leaving = false;
+          boss.maxHp = 1 + (bossLevel * 8); boss.hp = boss.maxHp; boss.x = canvas.width + 100;
+          boss.projectiles = []; boss.shootTimer = 0; bossWarningUI.classList.add('warning-active');
         }
-      } else if (gameState === 'BOSS_BATTLE') {
-        updateAndDrawBoss(timeScale);
-      }
-      
-      scoreTimer += timeScale;
-      if (scoreTimer >= 5) {
-        if (gameState === 'PLAYING' || (gameState === 'BOSS_BATTLE' && score < nextBossScore + 500)) {
-           score += 1;
-           scoreValueUI.innerText = score;
-           let progressPercent = Math.min((score / 10000) * 100, 100);
-           progressBar.style.width = `${progressPercent}%`;
-           progressMarker.style.left = `${progressPercent}%`;
+      } else if (gameState === 'BOSS_BATTLE') { updateAndDrawBoss(timeScale); }
+      if (gameState === 'PLAYING' || gameState === 'BOSS_BATTLE') {
+        scoreTimer += timeScale;
+        if (scoreTimer >= 5) {
+          if (gameState === 'PLAYING' || (gameState === 'BOSS_BATTLE' && score < nextBossScore + 500)) { addScore(); }
+          scoreTimer = 0;
         }
-        scoreTimer = 0;
       }
-      updateAndDrawObstacles(timeScale, currentGameSpeed);
+      updateAndDrawObstacles(timeScale, obstacleSpeed);
       updateAndDrawPlayer(timeScale);
     }
 
-    function drawBackground() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#4a154b';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
-    
-    function updateAndDrawDunes(timeScale) { /* 기존 구현 */ }
-    function updateAndDrawPlayer(timeScale) { /* 기존 구현 */ }
-    function updateAndDrawObstacles(timeScale, speed) { /* 기존 구현 */ }
-    function updateAndDrawBoss(timeScale) { /* 기존 구현 */ }
-    
     function startGame() {
-      gameState = 'PLAYING';
-      score = 0;
-      obstacles = [];
-      startScreen.classList.add('hidden');
-      gameOverScreen.classList.add('hidden');
-      lastTime = performance.now();
+      if (gameState === 'GAMEOVER' && recordSection.style.display !== 'none' && recordSection.style.display !== '') return;
+      if (!howToPlayScreen.classList.contains('hidden') || !settingsScreen.classList.contains('hidden') || !globalNoticeScreen.classList.contains('hidden')) return;
+      initAudio(); startBGM();
+      gameState = 'PLAYING'; score = 0; baseGameSpeed = 4.3; currentGameSpeed = 4.3; obstacles = [];
+      nextBossScore = 1000; bossLevel = 1; boss.active = false; boss.leaving = false; boss.projectiles = [];
+      bossWarningUI.classList.remove('warning-active');
+      keyStates.moveLeft = false; keyStates.moveRight = false;
+      player.x = 150; player.isCrouching = false; player.height = player.normalHeight; player.y = groundY - player.height;
+      player.vy = 0; player.trail = []; player.projectiles = []; player.shootCooldown = 0; player.damage = 1;
+      scoreValueUI.innerText = '0'; progressBar.style.width = '0%'; progressMarker.style.left = '0%';
+      startScreen.classList.add('hidden'); gameOverScreen.classList.add('hidden');
+      initDunes(); cancelAnimationFrame(animationId);
+      lastTime = performance.now(); animationFrameCount = 0; spawnTimer = 0; currentSpawnTarget = 60; scoreTimer = 0;
       loop(lastTime);
-      startBGM();
+    }
+
+    function resetToStartScreen() {
+      gameState = 'START';
+      cancelAnimationFrame(animationId);
+      startScreen.classList.remove('hidden');
+      gameOverScreen.classList.add('hidden');
+      howToPlayScreen.classList.add('hidden');
+      settingsScreen.classList.add('hidden');
+      globalNoticeScreen.classList.add('hidden');
+      bossWarningUI.classList.remove('warning-active');
+      drawBackground(); updateAndDrawDunes(); updateAndDrawPlayer(); updateControlInfoUI();
+      loadLeaderboard(); checkNewNotices();
     }
 
     function endGame() {
       gameState = 'GAMEOVER';
-      gameOverScreen.classList.remove('hidden');
-      finalScoreText.innerText = `최종 점수 : ${score}점`;
       playSound('gameover');
+      finalScoreText.innerText = `최종 점수 : ${score}점`;
+      playerNameInput.value = '';
+      recordSection.style.display = 'flex';
+      gameOverScreen.classList.remove('hidden');
+      bossWarningUI.classList.remove('warning-active');
+      keyStates.moveLeft = false; keyStates.moveRight = false;
+      if (player.isCrouching) {
+        player.isCrouching = false; player.height = player.normalHeight;
+      }
+      setTimeout(() => playerNameInput.focus(), 50);
     }
 
-    // --- 기록 저장 및 동기화 구현부 ---
-    saveScoreBtn.addEventListener('click', () => {
-      const name = playerNameInput.value.trim() || '방랑자';
-      const record = { name, score, timestamp: Date.now() };
-
-      if (navigator.onLine) {
-        sendToServer(record);
-      } else {
-        let pending = JSON.parse(localStorage.getItem(SYNC_KEY) || '[]');
-        pending.push(record);
-        localStorage.setItem(SYNC_KEY, JSON.stringify(pending));
-        alert("오프라인 상태입니다. 나중에 인터넷이 연결되면 자동으로 기록이 저장됩니다.");
-      }
-      
-      gameOverScreen.classList.add('hidden');
-      startScreen.classList.remove('hidden');
-      gameState = 'START';
-      loadLeaderboard();
-    });
-
-    skipSaveBtn.addEventListener('click', () => {
-      gameOverScreen.classList.add('hidden');
-      startScreen.classList.remove('hidden');
-      gameState = 'START';
-    });
-
     function loadLeaderboard() {
-      fetch(`${SHEET_WEB_APP_URL}?action=get&t=${Date.now()}`)
-        .then(res => res.json())
+      if (isFetchingLeaderboard) return;
+      // 랭킹 로드 시 백그라운드에 대기 중인 오프라인 점수가 있다면 먼저 업로드 시도
+      syncPendingScores();
+
+      const cachedData = localStorage.getItem('desertOdysseyLeaderboard');
+      if (cachedData) { updateLeaderboardUI(JSON.parse(cachedData)); }
+      else { leaderboardDisplay.innerHTML = '<h3>🏆 명예의 전당 🏆</h3><p style="font-size:14px; color:#aaa;">데이터를 가져오는 중...</p>'; }
+      isFetchingLeaderboard = true;
+      fetch(`${SHEET_WEB_APP_URL}?action=get&t=${Date.now()}`, { cache: "no-store" })
+        .then(response => response.json())
         .then(data => {
-            let html = '<h3>🏆 명예의 전당 🏆</h3><table><tr><th>순위</th><th>이름</th><th>점수</th></tr>';
-            data.forEach((entry, index) => {
-                html += `<tr><td>${index+1}위</td><td>${entry.name}</td><td>${entry.score}</td></tr>`;
-            });
-            leaderboardDisplay.innerHTML = html + '</table>';
+          localStorage.setItem('desertOdysseyLeaderboard', JSON.stringify(data));
+          updateLeaderboardUI(data);
+          isFetchingLeaderboard = false;
+        })
+        .catch(err => {
+          console.error("랭킹 로드 실패:", err);
+          isFetchingLeaderboard = false;
         });
     }
 
-    // 초기화
+    function updateLeaderboardUI(leaderboard) {
+      if (!leaderboard || leaderboard.length === 0) {
+        leaderboardDisplay.innerHTML = '<h3>🏆 명예의 전당 🏆</h3><p style="font-size:15px; margin-top:10px;">기록된 방랑자가 없습니다.</p>';
+        return;
+      }
+      let html = '<h3>🏆 명예의 전당 🏆</h3><table><tr><th>순위</th><th>이름</th><th>점수</th></tr>';
+      leaderboard.forEach((entry, index) => {
+        let rankText = (index === 0) ? '🥇' : (index === 1) ? '🥈' : (index === 2) ? '🥉' : `${index + 1}위`;
+        html += `<tr><td>${rankText}</td><td>${entry.name}</td><td>${entry.score}</td></tr>`;
+      });
+      html += '</table>';
+      leaderboardDisplay.innerHTML = html;
+    }
+
+    // --- [추가 기능 2] 오프라인 방어막: 네트워크 에러 발생 시 데이터 로컬 유실 차단 시스템 ---
+    async function syncPendingScores() {
+      if (!navigator.onLine) return;
+      try {
+        const pending = JSON.parse(localStorage.getItem('desert_pending_scores')) || [];
+        if (pending.length === 0) return;
+
+        console.log(`[방어막] 오프라인 대기 중인 기록 ${pending.length}개 발견, 동기화 개시...`);
+        let unexported = [];
+
+        for (let task of pending) {
+          try {
+            const res = await fetch(`${SHEET_WEB_APP_URL}?action=insert&name=${encodeURIComponent(task.name)}&score=${task.score}`);
+            const data = await res.json();
+            if (data.result !== "success") unexported.push(task);
+          } catch (e) {
+            unexported.push(task);
+          }
+        }
+
+        if (unexported.length === 0) {
+          localStorage.removeItem('desert_pending_scores');
+          console.log("[방어막] 모든 오프라인 유실 방지 점수가 구글 시트에 안전하게 연동되었습니다.");
+        } else {
+          localStorage.setItem('desert_pending_scores', JSON.stringify(unexported));
+        }
+      } catch (e) {
+        console.error("동기화 파서 내부 요류:", e);
+      }
+    }
+
+    recordSection.addEventListener('mousedown', (e) => e.stopPropagation());
+    recordSection.addEventListener('touchstart', (e) => e.stopPropagation());
+    recordSection.addEventListener('click', (e) => e.stopPropagation());
+    playerNameInput.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.isComposing) return;
+      if (e.key === 'Enter') { e.preventDefault(); saveScoreBtn.click(); }
+    });
+
+    saveScoreBtn.addEventListener('click', (e) => {
+      const name = playerNameInput.value.trim() || '이름없는 방랑자';
+      saveScoreBtn.innerText = "저장 중...";
+      saveScoreBtn.disabled = true;
+      skipSaveBtn.disabled = true;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => { controller.abort(); }, 3000);
+      
+      fetch(`${SHEET_WEB_APP_URL}?action=insert&name=${encodeURIComponent(name)}&score=${score}`, {
+          signal: controller.signal
+        })
+        .then(response => response.json())
+        .then(data => {
+          clearTimeout(timeoutId);
+          if (data.result === "success") {
+            recordSection.style.display = 'none';
+            resetToStartScreen();
+          }
+        })
+        .catch(err => {
+          clearTimeout(timeoutId);
+          console.error("네트워크 단절 혹은 타임아웃 발생 -> 오프라인 방어막 가동:", err);
+          
+          // 로컬 스토리지 버퍼에 밀어 넣어 나중에 인터넷이 연결되면 전송하도록 보호
+          try {
+            const pending = JSON.parse(localStorage.getItem('desert_pending_scores')) || [];
+            pending.push({ name: name, score: score, date: Date.now() });
+            localStorage.setItem('desert_pending_scores', JSON.stringify(pending));
+            alert("⚠️ 네트워크 연결이 불안정하여 점수가 브라우저 안전장치에 임시 저장되었습니다! 인터넷 연결이 복구되면 명예의 전당으로 자동 전송됩니다.");
+          } catch(storageErr) {
+            console.error("로컬 스토리지 할당 실패:", storageErr);
+          }
+
+          recordSection.style.display = 'none';
+          resetToStartScreen();
+        })
+        .finally(() => {
+          saveScoreBtn.innerText = "기록 저장";
+          saveScoreBtn.disabled = false;
+          skipSaveBtn.disabled = false;
+        });
+    });
+
+    skipSaveBtn.addEventListener('click', (e) => {
+      recordSection.style.display = 'none';
+      resetToStartScreen();
+    });
+
+    document.addEventListener('contextmenu', (e) => e.preventDefault());
     updateRebindButtonsUI();
     updateControlInfoUI();
     initDunes();
+    drawBackground();
+    updateAndDrawDunes();
+    updateAndDrawPlayer();
     loadLeaderboard();
+    checkNewNotices();
+
+    // 시작 화면 루프 타이머들 연동
+    accurateTimer(() => {
+      if (gameState === 'START' && !startScreen.classList.contains('hidden')) {
+        loadLeaderboard();
+        syncPendingScores(); 
+      }
+    }, 5000);
+
+    accurateTimer(() => {
+      if (gameState === 'START' && !startScreen.classList.contains('hidden')) {
+        checkNewNotices();
+        checkGameUpdate(); // 5초 간격으로 백그라운드 패치 감지 진행
+      }
+    }, 5000);
   </script>
 </body>
+
 </html>
