@@ -549,7 +549,7 @@
       </div>
     </div>
 
-    <ddiviv id="gameOverScreen" class="overlayScreen hidden">
+    <div id="gameOverScreen" class="overlayScreen hidden">
       <h1>여정 종료</h1>
       <p id="finalScoreText" style="font-size: 28px; font-weight: bold; color: #ffe600;">달성한 점수 : 0</p>
       <div id="recordSection">
@@ -558,10 +558,25 @@
         <button id="skipSaveBtn" class="ui-button secondary" style="margin-bottom: 0;">저장 안함</button>
       </div>
       <div class="blink-text">이름 입력 후 엔터를 누르거나 '저장 안함'을 누르세요</div>
-    </ddiviv>
+    </div>
   </div>
 
   <script>
+    // --- 추가된 오차 보정 타이머 함수 ---
+    function accurateTimer(callback, interval) {
+      let expected = Date.now() + interval;
+      let timeoutId;
+      function step() {
+        let dt = Date.now() - expected;
+        callback();
+        expected += interval;
+        timeoutId = setTimeout(step, Math.max(0, interval - dt));
+      }
+      timeoutId = setTimeout(step, interval);
+      return () => clearTimeout(timeoutId);
+    }
+    // --------------------------------
+
     const GOOGLE_SHEET_CSV_URL = "https://script.google.com/macros/s/AKfycbzBXe9QYuHaZTjfwMazjb-FkLjWt8c-OjkyQOr2DmS3kx2EGM7vvFy5bOl7_2CQGSkgag/exec";
     const SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyAdjdfX0DK3v4VvUtMJf1UeAABnaR3kljhrSPIJbaPDyWyw-vm_MfudPwPseU-X0WQFw/exec";
     const canvas = document.getElementById('gameCanvas');
@@ -656,7 +671,7 @@
     let audioCtx = null;
     let bgmGain = null;
     let sfxGain = null;
-    let bgmInterval = null;
+    let stopBgmTimer = null; // 수정: setInterval 변수 대체
 
     function initAudio() {
       if (audioCtx) return;
@@ -719,13 +734,15 @@
 
     function startBGM() {
       if (!audioCtx) return;
-      if (bgmInterval) clearInterval(bgmInterval);
+      if (stopBgmTimer) stopBgmTimer(); // 기존 타이머 정지
       const normalNotes = [147, 165, 175, 196, 220, 196, 175, 165];
       const bossNotes = [110, 117, 110, 117, 131, 123, 110, 98];
       let step = 0;
-      bgmInterval = setInterval(() => {
+      
+      // 수정: 오차 누적이 발생하던 setInterval을 accurateTimer로 교체
+      stopBgmTimer = accurateTimer(() => {
         if (gameState !== 'PLAYING' && gameState !== 'BOSS_BATTLE') {
-          clearInterval(bgmInterval);
+          if (stopBgmTimer) stopBgmTimer();
           return;
         }
         const osc = audioCtx.createOscillator();
@@ -743,6 +760,7 @@
         step++;
       }, 400);
     }
+    
     async function openGlobalNotice(e) {
       if (e) e.stopPropagation();
       const listContainer = document.getElementById('globalNoticeList');
@@ -1733,12 +1751,16 @@
     updateAndDrawPlayer();
     loadLeaderboard();
     checkNewNotices();
-    setInterval(() => {
+    
+    // 수정: setInterval 교체
+    accurateTimer(() => {
       if (gameState === 'START' && !startScreen.classList.contains('hidden')) {
         loadLeaderboard();
       }
     }, 5000);
-    setInterval(() => {
+    
+    // 수정: setInterval 교체
+    accurateTimer(() => {
       if (gameState === 'START' && !startScreen.classList.contains('hidden')) {
         checkNewNotices();
       }
