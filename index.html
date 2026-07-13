@@ -7,13 +7,13 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Samanico">
-  
+
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  
+
   <title>Samanico (Samanico)</title>
-  
+
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" href="IMG_0012.png">
   <link rel="apple-touch-icon" href="IMG_0012.png">
@@ -26,9 +26,12 @@
   </script>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-analytics.js";
-
+    import {
+      initializeApp
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import {
+      getAnalytics
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-analytics.js";
     const firebaseConfig = {
       apiKey: "AIzaSyDrQqpDl1FhGf3Pav4HxHFXPBWTGA34I28",
       authDomain: "altosodysay-e6a1d.firebaseapp.com",
@@ -38,7 +41,6 @@
       appId: "1:838810186387:web:21e8e270693eb58401136c",
       measurementId: "G-P7EVFL1YBQ"
     };
-
     // 파이어베이스 초기화 실행
     const app = initializeApp(firebaseConfig);
     const analytics = getAnalytics(app);
@@ -60,7 +62,7 @@
       background-color: #0b0c10;
       display: flex;
       justify-content: center;
-      align-items: center; /* 복사 오류 수정됨 */
+      align-items: center;
       overflow: hidden;
       font-family: 'Noto Serif KR', serif;
       user-select: none;
@@ -535,7 +537,8 @@
         <p><strong>🟩 초록색 발판:</strong> 초록색으로 된 발판은 점프해서 안전하게 밟고 올라갈 수 있습니다!</p>
         <p><strong>👿 보스 전투:</strong> 1000점 단위로 보스가 등장합니다. 그 이후 2000점이 지날때 마다 보스가 등장하며 보스전 중에는 설정한 <strong>[공격키]</strong>를 눌러 탄환을 발사할 수 있습니다.(보스전을 오래 끌면 불리해요.)</p>
         <p><strong>⚔️ 보상:</strong> 보스를 처치하면 보상을 얻고 다음 보스를 더 쉽게 물리칩니다!</p>
-        <p><strong>웹 업데이트:</strong> 웹 새로고침을 하면 게임을 업데이트 할수 있습니다. *공지사항도 확인해주세요.*</p>
+        <p><strong>웹 업데이트:</strong> 웹 새로고침을 하면 게임을 업데이트 할수 있습니다.
+        <p></strong>*공지사항도 확인해주세요.*</p>
       </div>
       <button id="closeHowToPlayBtn" class="ui-button">닫기</button>
     </div>
@@ -731,22 +734,62 @@
     player.y = groundY - player.height;
     let obstacles = [];
     let dunes = [];
-    /* --- 개선된 오디오 시스템 (마스터/개별 볼륨 및 부드러운 점프음) --- */
+    /* ─── 🛠️ 정석 오디오 라우팅 (버스 시스템) 아키텍처 ─── */
     let audioCtx = null;
     let stopBgmTimer = null;
-    // 볼륨 관리 객체 (0.0 ~ 1.0 비율)
+    // 오디오 버스 노드 정의
+    let compressor = null;
+    let masterGain = null;
+    let normalBgmGain = null;
+    let bossBgmGain = null;
+    let jumpGain = null;
+    let deathGain = null;
+    let sfxGain = null; // 원거리 공격, 피격 범용 효과음 버스
+    // 임시 볼륨값 저장 및 초기값 세팅 (0.0 ~ 1.0)
     const audioVolumes = {
-      master: 0.5,
-      normalBgm: 0.5,
-      bossBgm: 0.5,
-      jump: 0.5,
-      death: 0.5,
-      sfx: 0.5, // 공격, 피격 등 기타 효과음
+      master: 3,
+      normalBgm: 3,
+      bossBgm: 1,
+      jump: 0.6,
+      death: 0.3,
+      sfx: 0.5,
     };
 
     function initAudio() {
       if (audioCtx) return;
-      audioCtx = new(window.AudioContext || window.webkitAudioContext)();
+      // 👍 지연 민감형 최적화 인스턴스 옵션 구성 (latencyHint 가 핵심)
+      audioCtx = new(window.AudioContext || window.webkitAudioContext)({
+        latencyHint: 'interactive'
+      });
+      // 1. 디지털 피크/클리핑 왜곡 방지용 최종 안전 컴프레서 노드 생성
+      compressor = audioCtx.createDynamicsCompressor();
+      compressor.threshold.setValueAtTime(-16, audioCtx.currentTime);
+      compressor.knee.setValueAtTime(25, audioCtx.currentTime);
+      compressor.ratio.setValueAtTime(10, audioCtx.currentTime);
+      compressor.attack.setValueAtTime(0.003, audioCtx.currentTime);
+      compressor.release.setValueAtTime(0.15, audioCtx.currentTime);
+      // 2. 각 오디오 라우팅 버스(Gain Node) 독립 인스턴스 생성
+      masterGain = audioCtx.createGain();
+      normalBgmGain = audioCtx.createGain();
+      bossBgmGain = audioCtx.createGain();
+      jumpGain = audioCtx.createGain();
+      deathGain = audioCtx.createGain();
+      sfxGain = audioCtx.createGain();
+      // 3. 사용자가 슬라이더로 설정해둔 초기 볼륨 값 실시간 동기화
+      masterGain.gain.setValueAtTime(audioVolumes.master, audioCtx.currentTime);
+      normalBgmGain.gain.setValueAtTime(audioVolumes.normalBgm, audioCtx.currentTime);
+      bossBgmGain.gain.setValueAtTime(audioVolumes.bossBgm, audioCtx.currentTime);
+      jumpGain.gain.setValueAtTime(audioVolumes.jump, audioCtx.currentTime);
+      deathGain.gain.setValueAtTime(audioVolumes.death, audioCtx.currentTime);
+      sfxGain.gain.setValueAtTime(audioVolumes.sfx, audioCtx.currentTime);
+      // 4. 구조적인 라우팅 연결 (오디오 버스 계층 설계)
+      normalBgmGain.connect(masterGain);
+      bossBgmGain.connect(masterGain);
+      jumpGain.connect(masterGain);
+      deathGain.connect(masterGain);
+      sfxGain.connect(masterGain);
+      masterGain.connect(compressor);
+      compressor.connect(audioCtx.destination);
     }
 
     function playSound(type) {
@@ -755,44 +798,48 @@
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.connect(gain);
-      gain.connect(audioCtx.destination); // 볼륨을 개별로 계산하므로 destination에 직결
+      // 👍 즉시 실행을 위해 하드웨어 기반의 현재 정밀 절대 시각을 캡처
       const time = audioCtx.currentTime;
       if (type === 'jump') {
-        // 점프 소리를 짧고 부드럽게(sine) 변경하여 배경음악과 조화롭게 만듦
-        let effVol = audioVolumes.master * audioVolumes.jump * 0.15;
+        gain.connect(jumpGain);
+        let effVol = 1;
         osc.type = 'sine';
         osc.frequency.setValueAtTime(300, time);
-        osc.frequency.exponentialRampToValueAtTime(600, time + 0.08);
+        osc.frequency.exponentialRampToValueAtTime(600, time + 0.01);
         gain.gain.setValueAtTime(effVol, time);
-        gain.gain.linearRampToValueAtTime(0, time + 0.08);
-        osc.start();
-        osc.stop(time + 0.08);
+        gain.gain.linearRampToValueAtTime(0, time + 0.05);
+        // 👍 메인 스레드 밀림 방지: 시간 매개변수를 직접 주입하여 즉시 칼박자 실행
+        osc.start(time);
+        osc.stop(time + 0.05);
       } else if (type === 'shoot') {
-        let effVol = audioVolumes.master * audioVolumes.sfx * 0.2;
+        gain.connect(sfxGain);
+        let effVol = 2;
         osc.type = 'sawtooth';
         osc.frequency.setValueAtTime(600, time);
         osc.frequency.linearRampToValueAtTime(200, time + 0.08);
         gain.gain.setValueAtTime(effVol, time);
         gain.gain.linearRampToValueAtTime(0, time + 0.08);
-        osc.start();
+        osc.start(time);
         osc.stop(time + 0.08);
       } else if (type === 'hit') {
-        let effVol = audioVolumes.master * audioVolumes.sfx * 0.4;
+        gain.connect(sfxGain);
+        let effVol = 2;
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(180, time);
         osc.frequency.linearRampToValueAtTime(60, time + 0.1);
         gain.gain.setValueAtTime(effVol, time);
         gain.gain.linearRampToValueAtTime(0, time + 0.1);
-        osc.start();
+        osc.start(time);
         osc.stop(time + 0.1);
       } else if (type === 'gameover') {
-        let effVol = audioVolumes.master * audioVolumes.death * 0.5;
+        gain.connect(deathGain);
+        let effVol = 2;
         osc.type = 'sawtooth';
         osc.frequency.setValueAtTime(220, time);
         osc.frequency.linearRampToValueAtTime(50, time + 0.6);
         gain.gain.setValueAtTime(effVol, time);
         gain.gain.linearRampToValueAtTime(0, time + 0.6);
-        osc.start();
+        osc.start(time);
         osc.stop(time + 0.6);
       }
     }
@@ -811,18 +858,22 @@
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.connect(gain);
-        gain.connect(audioCtx.destination);
         const isBoss = (gameState === 'BOSS_BATTLE');
+        if (isBoss) {
+          gain.connect(bossBgmGain);
+        } else {
+          gain.connect(normalBgmGain);
+        }
         osc.type = isBoss ? 'sawtooth' : 'triangle';
         const currentNotes = isBoss ? bossNotes : normalNotes;
-        // 마스터 볼륨과 개별 볼륨의 곱으로 최종 볼륨 계산 (비율 유지)
-        let specificVol = isBoss ? audioVolumes.bossBgm : audioVolumes.normalBgm;
-        let effVol = audioVolumes.master * specificVol * 0.25;
-        osc.frequency.setValueAtTime(currentNotes[step % currentNotes.length], audioCtx.currentTime);
-        gain.gain.setValueAtTime(effVol, audioCtx.currentTime);
-        gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.38);
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.38);
+        let effVol = 0.25;
+        // 👍 BGM 시퀀싱 루프 리듬 타임라인 보정
+        const time = audioCtx.currentTime;
+        osc.frequency.setValueAtTime(currentNotes[step % currentNotes.length], time);
+        gain.gain.setValueAtTime(effVol, time);
+        gain.gain.linearRampToValueAtTime(0, time + 0.38);
+        osc.start(time);
+        osc.stop(time + 0.38);
         step++;
       }, 400);
     }
@@ -929,7 +980,7 @@
       infoDiv.innerHTML = `
         <p><strong>[ 움직임(슬라이드) ]</strong> ${leftKey} / ${rightKey} &nbsp;&nbsp; <strong>[ 웅크리기(슬라이드) ]</strong> ${crouchKey} &nbsp;&nbsp; <strong>[ ESC ]</strong> 처음으로</p>
         <p><strong>[ 점프(슬라이드,터치) ]</strong> ${jumpKey} &nbsp;&nbsp; <strong>[ 공격 ]</strong> ${attackKey},터치 &nbsp;&nbsp; 
-           <span style="color: #ffe600; font-weight: bold;">[ 업데이트 ] BGM 추가</span>
+           <span style="color: #fff034; font-weight: bold;">[ 업데이트 ] 보스 패턴</span>
         </p>
       `;
     }
@@ -1002,13 +1053,12 @@
         btn.innerText = '키를 누르세요...';
       });
     });
-    // 오디오 슬라이더 조작 시 점프/게임상호작용 방지
     settingsScreen.querySelectorAll('input[type="range"]').forEach(slider => {
       slider.addEventListener('mousedown', (e) => e.stopPropagation());
       slider.addEventListener('touchstart', (e) => e.stopPropagation());
       slider.addEventListener('click', (e) => e.stopPropagation());
     });
-    // 각 슬라이더 이벤트 매핑 함수
+
     function setupVolumeSlider(id, key) {
       const slider = document.getElementById(id);
       const text = document.getElementById(id + 'Text');
@@ -1017,10 +1067,16 @@
           const val = e.target.value;
           text.innerText = `${val}%`;
           audioVolumes[key] = val / 100;
+          if (audioCtx) {
+            if (key === 'master' && masterGain) masterGain.gain.setValueAtTime(audioVolumes.master, audioCtx.currentTime);
+            if (key === 'normalBgm' && normalBgmGain) normalBgmGain.gain.setValueAtTime(audioVolumes.normalBgm, audioCtx.currentTime);
+            if (key === 'bossBgm' && bossBgmGain) bossBgmGain.gain.setValueAtTime(audioVolumes.bossBgm, audioCtx.currentTime);
+            if (key === 'jump' && jumpGain) jumpGain.gain.setValueAtTime(audioVolumes.jump, audioCtx.currentTime);
+            if (key === 'death' && deathGain) deathGain.gain.setValueAtTime(audioVolumes.death, audioCtx.currentTime);
+          }
         });
       }
     }
-    // 볼륨 슬라이더 세팅 적용
     setupVolumeSlider('masterVolume', 'master');
     setupVolumeSlider('normalBgmVolume', 'normalBgm');
     setupVolumeSlider('bossBgmVolume', 'bossBgm');
@@ -1272,8 +1328,9 @@
           if (recordSection.style.display !== 'none' && gameState === 'GAMEOVER') return;
           startGame();
         } else {
-          playerJump();
+          // 👍 기존에 공격키 분기 시 playerJump()와 함께 작동하던 구조 버그 수정 및 최적화
           if (gameState === 'BOSS_BATTLE') playerShoot();
+          else playerJump();
         }
       }
       if (e.code === keyBindings.crouch || e.code === 'ArrowDown') {
