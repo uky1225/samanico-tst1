@@ -1,7 +1,9 @@
-const CACHE_NAME = 'Samanico'; // 업뎃2
+  const CACHE_NAME = 'Samanico_v2'; // 버전 변경으로 기존 캐시 완벽 초기화
 const ASSETS = [
   './',
-  './index.html'
+  './index.html',
+  './icon-192.png',
+  './icon-512.png'
   // 필요 시 ./style.css, ./game.js 등 추가
 ];
 
@@ -9,7 +11,7 @@ self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)));
 });
 
-// [추가] 이전 캐시 삭제를 통한 버전 관리
+// 이전 캐시(과거 버전) 삭제를 통한 버전 관리
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
