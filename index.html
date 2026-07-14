@@ -128,10 +128,9 @@
       -webkit-user-select: none;
       -webkit-touch-callout: none;
       position: fixed;
-      left: 0;
-      top: 0;
-      width: 100%;
-      height: 100%;
+      inset: 0;
+      width: 100vw;
+      height: 100dvh;
       margin: 0;
       padding: 0;
       background-color: #0b0c10;
@@ -145,8 +144,7 @@
 
     #gameContainer {
       position: absolute;
-      left: 0;
-      top: 0;
+      inset: 0;
       width: 100%;
       height: 100%;
       background: linear-gradient(180deg, #2b1055 0%, #75225b 50%, #d46c63 100%);
@@ -191,6 +189,7 @@
       left: 50%;
       transform: translateX(-50%);
       width: 500px;
+      max-width: 80vw;
       height: 10px;
       background: rgba(255, 255, 255, 0.2);
       border-radius: 5px;
@@ -260,8 +259,7 @@
 
     .overlayScreen {
       position: absolute;
-      top: 0;
-      left: 0;
+      inset: 0;
       width: 100%;
       height: 100%;
       background: rgba(14, 8, 22, 0.94);
@@ -273,6 +271,8 @@
       text-align: center;
       color: #fceabb;
       transition: opacity 0.5s ease;
+      padding: 20px;
+      box-sizing: border-box;
     }
 
     #globalNoticeScreen {
@@ -305,6 +305,8 @@
       font-size: 15px;
       line-height: 1.6;
       box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+      max-width: 90vw;
+      box-sizing: border-box;
     }
 
     .controls-info p {
@@ -348,6 +350,8 @@
       text-align: left;
       line-height: 1.8;
       max-width: 650px;
+      width: 90vw;
+      box-sizing: border-box;
     }
 
     .manual-content p {
@@ -435,8 +439,10 @@
       border-radius: 8px;
       padding: 15px 25px;
       width: 450px;
+      max-width: 90vw;
       margin-bottom: 20px;
       box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+      box-sizing: border-box;
     }
 
     .leaderboard-box h3 {
@@ -584,9 +590,11 @@
       <div id="progressGoal">10000</div>
     </div>
     <div id="bossWarning">⚠ BOSS STAGE ⚠</div>
-    <canvas id="gameCanvas"></canvas> <div id="globalNoticeScreen" class="overlayScreen hidden">
+    <canvas id="gameCanvas"></canvas>
+    
+    <div id="globalNoticeScreen" class="overlayScreen hidden">
       <h1 style="font-size: 42px; margin-bottom: 25px;">실시간 사막 소식</h1>
-      <div class="manual-content" style="width: 500px; max-height: 350px; overflow-y: auto;">
+      <div class="manual-content" style="max-height: 350px; overflow-y: auto;">
         <ul id="globalNoticeList" class="notice-list">
           <li>공지사항을 가져오는 중입니다...</li>
         </ul>
@@ -620,7 +628,7 @@
         <p><strong>👿 보스 전투:</strong> 1000점 단위로 보스가 등장합니다. 그 이후 2000점이 지날때 마다 보스가 등장하며 보스전 중에는 설정한 <strong>[공격키]</strong>를 눌러 탄환을 발사할 수 있습니다.(보스전을 오래 끌면 불리해요.)</p>
         <p><strong>⚔️ 보상:</strong> 보스를 처치하면 보상을 얻고 다음 보스를 더 쉽게 물리칩니다!</p>
         <p><strong>게임 업데이트:</strong> 게임 업데이트는 자동으로 되며 업데이트 날자는 공지로 표시하겠습니다.</p>
-        <p></strong>*공지사항도 확인해주세요.*</p>
+        <p><strong>*공지사항도 확인해주세요.*</strong></p>
       </div>
       <button id="closeHowToPlayBtn" class="ui-button">닫기</button>
     </div>
@@ -628,7 +636,7 @@
     <div id="settingsScreen" class="overlayScreen hidden">
       <h1 style="font-size: 42px; margin-bottom: 25px;">⚙️ 설정 창</h1>
 
-      <div class="manual-content" style="width: 490px; max-height: 60vh; overflow-y: auto;">
+      <div class="manual-content" style="max-height: 60vh; overflow-y: auto;">
         <div class="setting-group">
           <h3> 조작 설정 (원하는 키를 자유롭게 설정하세요)</h3>
           <div class="setting-item">
@@ -761,6 +769,7 @@
     const VIRTUAL_HEIGHT = 675;
     let virtualWidth = 1200; 
     let gameScale = 1;
+    let dpr = 1;
     const groundY = VIRTUAL_HEIGHT - 80; 
 
     let baseGameSpeed = 6.5;
@@ -949,6 +958,7 @@
         step++;
       }, 400);
     }
+
     async function openGlobalNotice(e) {
       if (e) e.stopPropagation();
       const listContainer = document.getElementById('globalNoticeList');
@@ -979,6 +989,7 @@
         listContainer.innerHTML = '<li style="color:#ff0055;">소식을 불러오지 못했습니다. 앱스 스크립체 웹앱 주소 및 배포 상태를 확인해주세요.</li>';
       }
     }
+
     async function checkNewNotices() {
       const badge = document.getElementById('noticeBadge');
       try {
@@ -1002,12 +1013,14 @@
       globalNoticeScreen.classList.add('hidden');
     }
 
+    /* 🌟 화면 쏠림 방지 및 고해상도(DPR) 정밀 캔버스 리사이즈 함수 */
     function resizeGame() {
-      const windowWidth = window.innerWidth;
-      const windowHeight = window.innerHeight;
+      dpr = Math.max(1, window.devicePixelRatio || 1);
+      const windowWidth = window.innerWidth || document.documentElement.clientWidth;
+      const windowHeight = window.innerHeight || document.documentElement.clientHeight;
       
-      canvas.width = windowWidth;
-      canvas.height = windowHeight;
+      canvas.width = Math.floor(windowWidth * dpr);
+      canvas.height = Math.floor(windowHeight * dpr);
       
       gameScale = windowHeight / VIRTUAL_HEIGHT;
       virtualWidth = windowWidth / gameScale;
@@ -1016,13 +1029,16 @@
         initDunes();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.scale(gameScale, gameScale);
+        ctx.scale(gameScale * dpr, gameScale * dpr);
         drawBackground();
         updateAndDrawDunes();
         updateAndDrawPlayer();
       }
     }
     window.addEventListener('resize', resizeGame);
+    window.addEventListener('orientationchange', () => {
+      setTimeout(resizeGame, 100);
+    });
 
     function translateKeyToKorean(keyCode) {
       const map = {
@@ -1076,6 +1092,7 @@
         }
       });
     }
+
     howToPlayBtn.addEventListener('mousedown', (e) => e.stopPropagation());
     howToPlayBtn.addEventListener('touchstart', (e) => e.stopPropagation());
     howToPlayBtn.addEventListener('click', (e) => {
@@ -1243,6 +1260,7 @@
         playSound('shoot');
       }
     }
+
     gameContainer.addEventListener('mousedown', (e) => {
       if (e.target.tagName.toLowerCase() === 'input' || e.target.tagName.toLowerCase() === 'button' || e.target.tagName.toLowerCase() === 'select') return;
       if (!howToPlayScreen.classList.contains('hidden') || !settingsScreen.classList.contains('hidden') || !globalNoticeScreen.classList.contains('hidden')) return;
@@ -1254,6 +1272,7 @@
         else playerJump();
       }
     });
+
     let touchStartX = 0;
     let touchStartY = 0;
     let lastTouchX = 0;
@@ -1262,6 +1281,7 @@
     let isTouching = false;
     let swipeUpDist = 0;
     let swipeDownDist = 0;
+
     gameContainer.addEventListener('touchstart', (e) => {
       if (e.target.tagName.toLowerCase() === 'input' || e.target.tagName.toLowerCase() === 'button' || e.target.tagName.toLowerCase() === 'select') return;
       if (gameState === 'PLAYING' || gameState === 'BOSS_BATTLE') e.preventDefault();
@@ -1277,6 +1297,7 @@
     }, {
       passive: false
     });
+
     gameContainer.addEventListener('touchmove', (e) => {
       if (e.target.tagName.toLowerCase() === 'input' || e.target.tagName.toLowerCase() === 'button' || e.target.tagName.toLowerCase() === 'select') return;
       if (gameState !== 'PLAYING' && gameState !== 'BOSS_BATTLE') return;
@@ -1320,6 +1341,7 @@
     }, {
       passive: false
     });
+
     gameContainer.addEventListener('touchend', (e) => {
       if (e.target.tagName.toLowerCase() === 'input' || e.target.tagName.toLowerCase() === 'button' || e.target.tagName.toLowerCase() === 'select') return;
       if (e.touches.length === 0) {
@@ -1352,6 +1374,7 @@
     }, {
       passive: false
     });
+
     document.addEventListener('keydown', (e) => {
       if (rebindingAction) {
         e.preventDefault();
@@ -1422,6 +1445,7 @@
         }
       }
     });
+
     document.addEventListener('keyup', (e) => {
       if (e.code === keyBindings.crouch || e.code === 'ArrowDown') {
         e.preventDefault();
@@ -1454,15 +1478,15 @@
     function drawBackground() {
       if (gameState === 'BOSS_BATTLE') {
         ctx.fillStyle = 'rgba(255, 0, 0, 0.15)';
-        ctx.fillRect(0, 0, virtualWidth, VIRTUAL_HEIGHT);
+        ctx.fillRect(0, 0, virtualWidth + 300, VIRTUAL_HEIGHT);
       }
       ctx.fillStyle = '#4a154b';
       ctx.beginPath();
       ctx.moveTo(0, groundY);
-      for (let i = 0; i <= virtualWidth + 150; i += 50) {
+      for (let i = 0; i <= virtualWidth + 300; i += 50) {
         ctx.lineTo(i, groundY - 120 - Math.sin((i + animationFrameCount * 0.5) * 0.01) * 35);
       }
-      ctx.lineTo(virtualWidth + 150, VIRTUAL_HEIGHT);
+      ctx.lineTo(virtualWidth + 300, VIRTUAL_HEIGHT);
       ctx.lineTo(0, VIRTUAL_HEIGHT);
       ctx.fill();
     }
@@ -1479,11 +1503,11 @@
         ctx.lineTo(dx, dy - Math.sin(d.offset) * 20);
         ctx.bezierCurveTo(dx + d.width * 0.3, dy - 60, dx + d.width * 0.7, dy - 60, dx + d.width, dy);
       });
-      ctx.lineTo(virtualWidth + 300, VIRTUAL_HEIGHT);
+      ctx.lineTo(virtualWidth + 500, VIRTUAL_HEIGHT);
       ctx.lineTo(0, VIRTUAL_HEIGHT);
       ctx.fill();
       ctx.fillStyle = '#110515';
-      ctx.fillRect(0, groundY, virtualWidth, VIRTUAL_HEIGHT - groundY);
+      ctx.fillRect(0, groundY, virtualWidth + 300, VIRTUAL_HEIGHT - groundY);
     }
 
     function updateAndDrawPlayer(timeScale = 1) {
@@ -1571,7 +1595,7 @@
         ctx.fillStyle = '#ffffff';
         ctx.shadowBlur = 0;
         ctx.fillRect(Math.round(p.x + 4), Math.round(p.y + 2), p.width - 8, p.height - 4);
-        if (p.x > virtualWidth) player.projectiles.splice(i, 1);
+        if (p.x > virtualWidth + 100) player.projectiles.splice(i, 1);
       }
     }
 
@@ -1614,7 +1638,7 @@
         }
         ctx.shadowBlur = 0;
         if ((gameState === 'PLAYING' || gameState === 'BOSS_BATTLE') && checkCollision(player, obs)) endGame();
-        if (obs.x + obs.width < 0) {
+        if (obs.x + obs.width < -100) {
           obstacles.splice(i, 1);
           i--;
         }
@@ -1731,9 +1755,9 @@
         ctx.shadowBlur = 0;
         ctx.fillRect(Math.round(p.x + 5), Math.round(p.y + 3), p.width - 10, p.height - 6);
         if (checkCollision(player, p)) endGame();
-        if (p.x + p.width < 0) boss.projectiles.splice(i, 1);
+        if (p.x + p.width < -100) boss.projectiles.splice(i, 1);
       }
-      if (boss.leaving && boss.x > virtualWidth && boss.projectiles.length === 0) {
+      if (boss.leaving && boss.x > virtualWidth + 200 && boss.projectiles.length === 0) {
         boss.active = false;
         gameState = 'PLAYING';
         bossLevel++;
@@ -1766,7 +1790,7 @@
 
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.scale(gameScale, gameScale);
+      ctx.scale(gameScale * dpr, gameScale * dpr);
 
       drawBackground();
       updateAndDrawDunes(timeScale);
@@ -1855,7 +1879,7 @@
       
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.scale(gameScale, gameScale);
+      ctx.scale(gameScale * dpr, gameScale * dpr);
       
       drawBackground();
       updateAndDrawDunes();
@@ -1919,6 +1943,7 @@
       html += '</table>';
       leaderboardDisplay.innerHTML = html;
     }
+
     recordSection.addEventListener('mousedown', (e) => e.stopPropagation());
     recordSection.addEventListener('touchstart', (e) => e.stopPropagation());
     recordSection.addEventListener('click', (e) => e.stopPropagation());
@@ -1930,6 +1955,7 @@
         saveScoreBtn.click();
       }
     });
+
     saveScoreBtn.addEventListener('click', (e) => {
       const name = playerNameInput.value.trim() || '이름없는 방랑자';
       saveScoreBtn.innerText = "저장 중...";
@@ -1962,10 +1988,12 @@
           skipSaveBtn.disabled = false;
         });
     });
+
     skipSaveBtn.addEventListener('click', (e) => {
       recordSection.style.display = 'none';
       resetToStartScreen();
     });
+
     document.addEventListener('contextmenu', (e) => e.preventDefault());
     
     updateRebindButtonsUI();
@@ -1975,7 +2003,7 @@
     loadLeaderboard();
     checkNewNotices();
     
-    /* 🌟 iPadOS 뷰포트 정렬 완화 안전 딜레이 오파시티 스크립트 실행 */
+    /* 🌟 안전 딜레이 오파시티 적용 및 최초 렌더링 동기화 */
     window.addEventListener('DOMContentLoaded', () => {
       setTimeout(() => {
         resizeGame();
@@ -1983,7 +2011,7 @@
         if (container) {
           container.style.opacity = '1';
         }
-      }, 150); // WebKit 엔진이 가로 해상도를 안정적으로 매핑할 시간을 보장
+      }, 150);
     });
 
     accurateTimer(() => {
@@ -1991,6 +2019,7 @@
         loadLeaderboard();
       }
     }, 5000);
+
     accurateTimer(() => {
       if (gameState === 'START' && !startScreen.classList.contains('hidden')) {
         checkNewNotices();
