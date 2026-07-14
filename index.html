@@ -22,37 +22,102 @@
     // 🌟 [최적화] 서비스 워커 등록 및 실시간 업데이트 연동 객체 선언
     let swRegistration = null;
     let lastModified = null;
+    let lastETag = null; // CDN 환경에 대비해 ETag 감지 장치 추가
+
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js')
         .then((reg) => {
-          console.log("오프라인 모드 활성화됨");
-          swRegistration = reg; // 🌟 서비스 워커 인스턴스 보관
+          console.log("오프라인 모드 활성화됨 (서비스 워커 등록 완료)");
+          swRegistration = reg;
+
+          // 새로운 서비스 워커가 대기 모드 없이 즉시 설치되도록 체크하는 리스너
+          reg.addEventListener('updatefound', () => {
+            const newWorker = reg.installing;
+            if (newWorker) {
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'activated') {
+                  console.log("[PWA] 새 서비스 워커가 활성화되었습니다. 새로고침을 실행합니다.");
+                  window.location.reload();
+                }
+              });
+            }
+          });
         })
         .catch(err => console.error("서비스 워커 등록 실패:", err));
+
+      // 🌟 [핵심 개선] 새로운 서비스 워커가 제어권을 가져오는 즉시 화면 새로고침 실행
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!refreshing) {
+          refreshing = true;
+          console.log("[PWA] 업데이트 반영을 위해 브라우저를 다시 로드합니다.");
+          window.location.reload();
+        }
+      });
     }
-    // 🌟 [최적화] 실시간 코드 변경 감지 및 동기식 캐시 업데이트 스크립트
-    setInterval(async () => {
+
+    // 🌟 [최적화] 서버 코드 업데이트를 감지하는 핵심 고속도로 함수
+    async function checkForUpdates() {
+      if (!navigator.onLine) return; // 오프라인일 때는 감지를 중단하여 배터리 절약
+
       try {
         const cacheBusterUrl = window.location.href.split('?')[0].split('#')[0] + '?update_check=' + Date.now();
         const response = await fetch(cacheBusterUrl, {
           method: 'HEAD',
-          cache: 'no-cache' // 브라우저 캐싱 강제 무시
+          cache: 'no-cache' // 브라우저 메모리 캐싱 방지
         });
+
         const currentModified = response.headers.get('Last-Modified');
-        if (lastModified && lastModified !== currentModified) {
-          console.log("새로운 코드 업데이트가 감지되었습니다!");
+        const currentETag = response.headers.get('ETag');
+
+        // 최초 접속 시 헤더 기준값 등록
+        if (lastModified === null && lastETag === null) {
+          lastModified = currentModified;
+          lastETag = currentETag;
+          return;
+        }
+
+        // Last-Modified 헤더 혹은 ETag 헤더 중 하나라도 바뀌었는지 점검
+        const isModifiedChanged = currentModified && lastModified && (lastModified !== currentModified);
+        const isETagChanged = currentETag && lastETag && (lastETag !== currentETag);
+
+        if (isModifiedChanged || isETagChanged) {
+          console.log("💡 새로운 코드 업데이트가 감지되었습니다!");
           if (swRegistration) {
             console.log("서비스 워커 최신 자원 다운로드 강제 유도 중...");
             await swRegistration.update();
+          } else {
+            // 서비스 워커 작동 전일 때를 대비한 다이렉트 새로고침 Fallback
+            window.location.reload();
           }
-          console.log("새로고침을 실행하여 변경된 화면을 적용합니다.");
-          window.location.reload();
         }
-        lastModified = currentModified;
+
+        if (currentModified) lastModified = currentModified;
+        if (currentETag) lastETag = currentETag;
+
       } catch (error) {
-        console.warn("코드 업데이트 감지 중 오류 발생 (오프라인 상태일 수 있음):", error);
+        console.warn("업데이트 감지 실패 (네트워크 연결이 일시적으로 끊겼을 수 있습니다):", error);
       }
-    }, 10000); // 10초마다 감지 실행
+    }
+
+    // 🌟 [최적화] 주기적 감지 인터벌: 5~30초 랜덤 실행
+    function scheduleRandomUpdateCheck() {
+      const randomDelay = Math.floor(Math.random() * (30000 - 5000 + 1) + 5000);
+      setTimeout(async () => {
+        await checkForUpdates();
+        scheduleRandomUpdateCheck(); // 다음 체크를 다시 스케줄링
+      }, randomDelay);
+    }
+    scheduleRandomUpdateCheck();
+
+    // 🌟 [초강력 추가] 유저가 브라우저 탭을 열거나, 모바일 화면을 켰을 때(Focus) 즉시 업데이트 확인
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        console.log("앱 복귀 감지: 즉시 업데이트 검사 중...");
+        checkForUpdates();
+        if (swRegistration) swRegistration.update();
+      }
+    });
   </script>
 
   <script type="module">
