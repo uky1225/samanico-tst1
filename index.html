@@ -19,10 +19,37 @@
   <link rel="apple-touch-icon" href="IMG_0012.png">
 
   <script>
+    // 1. 서비스 워커 등록 (오프라인 모드)
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js')
         .then(() => console.log("오프라인 모드 활성화됨"));
     }
+
+    // 🌟 [실시간 코드 변경 감지 및 자동 새로고침 스크립트]
+    let lastModified = null;
+    setInterval(async () => {
+      try {
+        // 서비스 워커와 브라우저 캐시를 우회하기 위해 URL 뒤에 랜덤한 시간 값을 붙여 요청을 보냅니다.
+        const cacheBusterUrl = window.location.href.split('?')[0].split('#')[0] + '?update_check=' + Date.now();
+        
+        const response = await fetch(cacheBusterUrl, { 
+          method: 'HEAD',
+          cache: 'no-cache' // 브라우저 캐싱 강제 무시
+        });
+        
+        const currentModified = response.headers.get('Last-Modified');
+        
+        // 이전에 받아온 수정 시간과 방금 받아온 수정 시간이 다르면 새로고침을 실행합니다.
+        if (lastModified && lastModified !== currentModified) {
+          console.log("새로운 코드 업데이트가 감지되어 새로고침합니다!");
+          window.location.reload();
+        }
+        lastModified = currentModified;
+      } catch (error) {
+        // 네트워크 연결이 잠시 끊겼거나 로컬 서버가 다운되었을 때 발생하는 에러는 콘솔 경고로만 남깁니다.
+        console.warn("코드 업데이트 감지 중 오류 발생 (오프라인 상태일 수 있음):", error);
+      }
+    }, 2000); // 2초마다 감지 실행 (부담이 적은 HEAD 요청을 사용합니다)
   </script>
 
   <script type="module">
@@ -807,7 +834,7 @@
         let effVol = 1;
         osc.type = 'sine';
         osc.frequency.setValueAtTime(300, time);
-        osc.frequency.exponentialRampToValueAtTime(600, time + 0.01);
+        osc.frequency.exponentialRampToValueToValueAtTime(600, time + 0.01);
         gain.gain.setValueAtTime(effVol, time);
         gain.gain.linearRampToValueAtTime(0, time + 0.05);
         // 👍 메인 스레드 밀림 방지: 시간 매개변수를 직접 주입하여 즉시 칼박자 실행
