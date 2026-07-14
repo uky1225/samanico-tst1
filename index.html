@@ -584,8 +584,7 @@
       <div id="progressGoal">10000</div>
     </div>
     <div id="bossWarning">⚠ BOSS STAGE ⚠</div>
-    <canvas id="gameCanvas"></canvas>
-    <div id="globalNoticeScreen" class="overlayScreen hidden">
+    <canvas id="gameCanvas"></canvas> <div id="globalNoticeScreen" class="overlayScreen hidden">
       <h1 style="font-size: 42px; margin-bottom: 25px;">실시간 사막 소식</h1>
       <div class="manual-content" style="width: 500px; max-height: 350px; overflow-y: auto;">
         <ul id="globalNoticeList" class="notice-list">
@@ -758,10 +757,12 @@
     let spawnTimer = 0;
     let currentSpawnTarget = 60;
     let scoreTimer = 0;
+
     const VIRTUAL_HEIGHT = 675;
-    let virtualWidth = 1200;
+    let virtualWidth = 1200; 
     let gameScale = 1;
-    const groundY = VIRTUAL_HEIGHT - 80;
+    const groundY = VIRTUAL_HEIGHT - 80; 
+
     let baseGameSpeed = 6.5;
     let currentGameSpeed = 6.5;
     let nextBossScore = 1000;
@@ -772,7 +773,7 @@
       leaving: false,
       hp: 1,
       maxHp: 1000,
-      x: 1300,
+      x: 1300, 
       y: 120,
       width: 90,
       height: 135,
@@ -1004,10 +1005,13 @@
     function resizeGame() {
       const windowWidth = window.innerWidth;
       const windowHeight = window.innerHeight;
+      
       canvas.width = windowWidth;
       canvas.height = windowHeight;
+      
       gameScale = windowHeight / VIRTUAL_HEIGHT;
       virtualWidth = windowWidth / gameScale;
+      
       if (gameState === 'START' || gameState === 'GAMEOVER') {
         initDunes();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1753,13 +1757,17 @@
       if (!timestamp) timestamp = performance.now();
       if (!lastTime) lastTime = timestamp;
       let deltaTime = timestamp - lastTime;
+      
       if (deltaTime > 100) deltaTime = 16.67;
       lastTime = timestamp;
+
       const timeScale = deltaTime / 16.67;
       animationFrameCount += timeScale;
+
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.scale(gameScale, gameScale);
+
       drawBackground();
       updateAndDrawDunes(timeScale);
       currentGameSpeed = baseGameSpeed + (score / 170);
@@ -1844,9 +1852,11 @@
       settingsScreen.classList.add('hidden');
       globalNoticeScreen.classList.add('hidden');
       bossWarningUI.classList.remove('warning-active');
+      
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.scale(gameScale, gameScale);
+      
       drawBackground();
       updateAndDrawDunes();
       updateAndDrawPlayer();
@@ -1957,12 +1967,14 @@
       resetToStartScreen();
     });
     document.addEventListener('contextmenu', (e) => e.preventDefault());
+    
     updateRebindButtonsUI();
     updateControlInfoUI();
-    resizeGame();
+    resizeGame(); 
     initDunes();
     loadLeaderboard();
     checkNewNotices();
+    
     /* 🌟 iPadOS 뷰포트 정렬 완화 안전 딜레이 오파시티 스크립트 실행 */
     window.addEventListener('DOMContentLoaded', () => {
       setTimeout(() => {
@@ -1973,6 +1985,7 @@
         }
       }, 150); // WebKit 엔진이 가로 해상도를 안정적으로 매핑할 시간을 보장
     });
+
     accurateTimer(() => {
       if (gameState === 'START' && !startScreen.classList.contains('hidden')) {
         loadLeaderboard();
