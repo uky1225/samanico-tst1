@@ -154,25 +154,25 @@
       container-type: size;
     }
 
-    /* 🖥️ [가로 모드] 화면 전체 채우기 */
     @media (orientation: landscape) {
       #gameContainer {
         position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
-        height: 100%;
+        /* 가로 모드일 때 중앙 정렬 */
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        /* JS에서 px 단위로 제어하므로 % 제거 */
       }
     }
 
-    /* 📱 [세로 모드] 무조건 가로 100% 고정 + 상/하단 레터박스만 생성 */
     @media (orientation: portrait) {
       #gameContainer {
-        position: relative;
-        left: auto;
-        top: auto;
-        width: 100vw;
-        aspect-ratio: 16 / 9;
+        position: absolute;
+        /* 세로 모드일 때 중앙 정렬 */
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        aspect-ratio: 16 / 9; /* 세로일 때만 사용 */
       }
     }
 
@@ -1040,14 +1040,40 @@
       globalNoticeScreen.classList.add('hidden');
     }
 
+    let resizeTimeout;
+
     function resizeGame() {
-      const windowWidth = gameContainer.clientWidth || window.innerWidth;
-      const windowHeight = gameContainer.clientHeight || window.innerHeight;
-      canvas.width = windowWidth;
-      canvas.height = windowHeight;
-      gameScale = windowHeight / VIRTUAL_HEIGHT;
-      virtualWidth = windowWidth / gameScale;
-      if (gameState === 'START' || gameState === 'GAMEOVER') {
+      // 화면 회전 시 브라우저 레이아웃이 완전히 정착될 때까지 250ms 대기 (iOS 필수)
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        const windowWidth = window.innerWidth;
+        const windowHeight = window.innerHeight;
+
+        // 16:9 비율 강제 계산
+        const targetRatio = 16 / 9;
+        let finalWidth, finalHeight;
+
+        if (windowWidth / windowHeight > targetRatio) {
+          // 화면이 가로로 더 길 경우 (높이 기준)
+          finalHeight = windowHeight;
+          finalWidth = windowHeight * targetRatio;
+        } else {
+          // 화면이 세로로 더 길 경우 (너비 기준)
+          finalWidth = windowWidth;
+          finalHeight = windowWidth / targetRatio;
+        }
+
+        // 1. 컨테이너 크기 강제 설정 (iOS 레이아웃 버그 방지)
+        gameContainer.style.width = `${finalWidth}px`;
+        gameContainer.style.height = `${finalHeight}px`;
+
+        // 2. 캔버스 및 게임 변수 업데이트
+        canvas.width = finalWidth;
+        canvas.height = finalHeight;
+        gameScale = finalHeight / VIRTUAL_HEIGHT;
+        virtualWidth = finalWidth / gameScale;
+
+        // 3. 화면 초기화 및 재그리기
         initDunes();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -1055,9 +1081,12 @@
         drawBackground();
         updateAndDrawDunes();
         updateAndDrawPlayer();
-      }
+      }, 250); 
     }
+
+    // 이벤트 리스너를 아래와 같이 보강
     window.addEventListener('resize', resizeGame);
+    window.addEventListener('orientationchange', resizeGame); // iOS 전용 이벤트 추가
 
     function translateKeyToKorean(keyCode) {
       const map = {
