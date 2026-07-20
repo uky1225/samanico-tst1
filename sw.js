@@ -1,5 +1,5 @@
 // 🌟 버전을 명시적으로 변경하여 브라우저가 새 버전을 감지할 수 있도록 합니다.
-const CACHE_NAME = 'Samanico_v0'; 
+const CACHE_NAME = 'Samanico_0.01v'; 
 
 const ASSETS = [
   './',
