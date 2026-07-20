@@ -1,4 +1,4 @@
-<!DOCTYPE html>//테스트 해보자
+<!DOCTYPE html>
 <html lang="ko">
 
 <head>
@@ -90,6 +90,29 @@
       }, randomDelay);
     }
     scheduleRandomUpdateCheck();
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        console.log("앱 복귀 감지: 즉시 업데이트 검사 중...");
+        checkForUpdates();
+        if (swRegistration) swRegistration.update();
+      }
+    });
+  </script>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-analytics.js";
+    const firebaseConfig = {
+      apiKey: "AIzaSyDrQqpDl1FhGf3Pav4HxHFXPBWTGA34I28",
+      authDomain: "altosodysay-e6a1d.firebaseapp.com",
+      projectId: "altosodysay-e6a1d",
+      storageBucket: "altosodysay-e6a1d.firebasestorage.app",
+      messagingSenderId: "838810186387",
+      appId: "1:838810186387:web:21e8e270693eb58401136c",
+      measurementId: "G-P7EVFL1YBQ"
+    };
+    const app = initializeApp(firebaseConfig);
+    const analytics = getAnalytics(app);
   </script>
 
   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;700&display=swap" rel="stylesheet">
@@ -103,8 +126,7 @@
       position: fixed;
       left: 0;
       top: 0;
-      width: 100%;
-      height: 100%;
+      width: 100vw;
       height: 100dvh;
       margin: 0;
       padding: 0;
@@ -115,7 +137,6 @@
       overflow: hidden;
       font-family: 'Noto Serif KR', serif;
       user-select: none;
-      box-sizing: border-box;
     }
 
     #gameContainer {
@@ -127,8 +148,6 @@
       opacity: 0;
       transition: opacity 0.25s ease-in-out;
       container-type: size;
-      --cqw: 1cqw;
-      --cqh: 1cqh;
     }
 
     /* 🖥️ [가로 모드] 화면 전체 채우기 */
@@ -148,8 +167,7 @@
         position: relative;
         left: auto;
         top: auto;
-        width: 100%;
-        max-width: 100%;
+        width: 100vw;
         aspect-ratio: 16 / 9;
       }
     }
@@ -254,7 +272,6 @@
         opacity: 0.5;
         text-shadow: 0 0 10px #ff0055;
       }
-
       to {
         opacity: 1;
         text-shadow: 0 0 30px #ff0055, 0 0 40px #fff;
@@ -425,13 +442,8 @@
     }
 
     @keyframes rebindBlink {
-      from {
-        opacity: 0.5;
-      }
-
-      to {
-        opacity: 1;
-      }
+      from { opacity: 0.5; }
+      to { opacity: 1; }
     }
 
     .setting-item input[type="range"] {
@@ -440,6 +452,7 @@
       cursor: pointer;
     }
 
+    /* 🏆 명예의 전당 보정 스타일 */
     .leaderboard-box {
       background: rgba(0, 0, 0, 0.75);
       border: 1px solid #d46c63;
@@ -449,12 +462,34 @@
       max-width: 90%;
       margin-bottom: 1.5cqh;
       box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+      display: flex;
+      flex-direction: column;
     }
 
     .leaderboard-box h3 {
       margin: 0 0 1.2cqh 0;
       color: #ffe600;
       font-size: 1.8cqw;
+    }
+
+    .leaderboard-table-container {
+      max-height: 25.5cqh; 
+      overflow-y: auto;
+      width: 100%;
+      padding-right: 0.4cqw;
+      box-sizing: border-box;
+    }
+
+    .leaderboard-table-container::-webkit-scrollbar {
+      width: 0.4cqw;
+    }
+    .leaderboard-table-container::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 0.2cqw;
+    }
+    .leaderboard-table-container::-webkit-scrollbar-thumb {
+      background: #d46c63;
+      border-radius: 0.2cqw;
     }
 
     .leaderboard-box table {
@@ -466,12 +501,23 @@
       color: #d46c63;
       font-weight: bold;
       border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-      padding-bottom: 0.8cqh;
-      font-size: 1.3cqw;
+      height: 4.5cqh;
+      font-size: 1.4cqw;
+      position: sticky;
+      top: 0;
+      background: #000000;
+      z-index: 2;
+      box-sizing: border-box;
+    }
+
+    .leaderboard-box tr {
+      height: 4.2cqh;
+      box-sizing: border-box;
     }
 
     .leaderboard-box td {
-      padding: 0.6cqh 0;
+      padding: 0.4cqh 0;
+      vertical-align: middle;
       color: #ffffff;
       font-size: 1.4cqw;
     }
@@ -494,9 +540,6 @@
       color: #000;
       font-family: 'Noto Serif KR', serif;
       outline: none;
-      -webkit-user-select: text !important;
-      user-select: text !important;
-      touch-action: auto !important;
     }
 
     .blink-text {
@@ -511,15 +554,8 @@
     }
 
     @keyframes blink {
-
-      0%,
-      100% {
-        opacity: 1;
-      }
-
-      50% {
-        opacity: 0.3;
-      }
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
     }
 
     .hidden {
@@ -604,6 +640,7 @@
     </div>
     <div id="bossWarning">⚠ BOSS STAGE ⚠</div>
     <canvas id="gameCanvas"></canvas>
+    
     <div id="globalNoticeScreen" class="overlayScreen hidden">
       <h1 style="font-size: 3.2cqw; margin-bottom: 1.5cqh;">실시간 사막 소식</h1>
       <div class="manual-content" style="width: 42cqw; max-width: 90%; max-height: 50cqh; overflow-y: auto;">
@@ -638,7 +675,7 @@
         <p><strong>🌵 장애물:</strong> 지상 장애물은 점프(위쪽)로, 공중 장애물은 웅크리기(아래쪽)로 회피하세요.</p>
         <p><strong>🟩 초록색 발판:</strong> 초록색으로 된 발판은 점프해서 안전하게 밟고 올라갈 수 있습니다!</p>
         <p><strong>👿 보스 전투:</strong> 1000점 단위로 보스가 등장합니다. 그 이후 2000점이 지날때 마다 보스가 등장하며 보스전 중에는 설정한 <strong>[공격키]</strong>를 눌러 탄환을 발사할 수 있습니다.(보스전을 오래 끌면 불리해요.)</p>
-        <p><strong>⚔️ 보상:</strong> 보스를 처치하면 보상을 얻고 다음 보스를 더 쉽게 물리칩니다!</p>
+        <p><strong>⚔️ 보상:</strong> 보스를 처치하면 보상을 얻으면 더 어려운 보스를 마주할 수 있습니다.</p>
         <p><strong>게임 업데이트:</strong> 게임 업데이트는 자동으로 되며 업데이트 날자는 공지로 표시하겠습니다.</p>
         <p><strong>*공지사항도 확인해주세요.*</strong></p>
       </div>
@@ -769,6 +806,7 @@
     const playerNameInput = document.getElementById('playerName');
     const saveScoreBtn = document.getElementById('saveScoreBtn');
     const skipSaveBtn = document.getElementById('skipSaveBtn');
+    
     let gameState = 'START';
     let animationId;
     let score = 0;
@@ -786,6 +824,7 @@
     let nextBossScore = 1000;
     let bossLevel = 1;
     let isFetchingLeaderboard = false;
+    
     const boss = {
       active: false,
       leaving: false,
@@ -799,6 +838,7 @@
       shootTimer: 0,
       hitTimer: 0
     };
+    
     const DEFAULT_BINDINGS = {
       moveLeft: 'ArrowLeft',
       moveRight: 'ArrowRight',
@@ -814,6 +854,7 @@
       moveLeft: false,
       moveRight: false
     };
+    
     const player = {
       x: 150,
       y: 0,
@@ -833,6 +874,7 @@
       damage: 1,
     };
     player.y = groundY - player.height;
+    
     let obstacles = [];
     let dunes = [];
     let audioCtx = null;
@@ -967,6 +1009,7 @@
         step++;
       }, 400);
     }
+    
     async function openGlobalNotice(e) {
       if (e) e.stopPropagation();
       const listContainer = document.getElementById('globalNoticeList');
@@ -994,9 +1037,10 @@
         }
       } catch (error) {
         console.error('공지 로드 실패:', error);
-        listContainer.innerHTML = '<li style="color:#ff0055;">소식을 불러오지 못했습니다. 앱스 스크립체 웹앱 주소 및 배포 상태를 확인해주세요.</li>';
+        listContainer.innerHTML = '<li style="color:#ff0055;">소식을 불러오지 못했습니다. 앱스 스크립트 웹앱 주소를 확인해주세요.</li>';
       }
     }
+    
     async function checkNewNotices() {
       const badge = document.getElementById('noticeBadge');
       try {
@@ -1021,16 +1065,12 @@
     }
 
     function resizeGame() {
-      const rect = gameContainer.getBoundingClientRect();
-      const windowWidth = Math.floor(rect.width) || window.innerWidth;
-      const windowHeight = Math.floor(rect.height) || window.innerHeight;
-      if (windowWidth === 0 || windowHeight === 0) return;
+      const windowWidth = gameContainer.clientWidth || window.innerWidth;
+      const windowHeight = gameContainer.clientHeight || window.innerHeight;
       canvas.width = windowWidth;
       canvas.height = windowHeight;
       gameScale = windowHeight / VIRTUAL_HEIGHT;
       virtualWidth = windowWidth / gameScale;
-      gameContainer.style.setProperty('--cqw', `${windowWidth / 100}px`);
-      gameContainer.style.setProperty('--cqh', `${windowHeight / 100}px`);
       if (gameState === 'START' || gameState === 'GAMEOVER') {
         initDunes();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1041,18 +1081,7 @@
         updateAndDrawPlayer();
       }
     }
-
-    function handleResize() {
-      resizeGame();
-      requestAnimationFrame(resizeGame);
-      setTimeout(resizeGame, 100);
-      setTimeout(resizeGame, 300);
-    }
-    window.addEventListener('resize', handleResize);
-    window.addEventListener('orientationchange', handleResize);
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', handleResize);
-    }
+    window.addEventListener('resize', resizeGame);
 
     function translateKeyToKorean(keyCode) {
       const map = {
@@ -1106,6 +1135,7 @@
         }
       });
     }
+    
     howToPlayBtn.addEventListener('mousedown', (e) => e.stopPropagation());
     howToPlayBtn.addEventListener('touchstart', (e) => e.stopPropagation());
     howToPlayBtn.addEventListener('click', (e) => {
@@ -1113,6 +1143,7 @@
       startScreen.classList.add('hidden');
       howToPlayScreen.classList.remove('hidden');
     });
+    
     closeHowToPlayBtn.addEventListener('mousedown', (e) => e.stopPropagation());
     closeHowToPlayBtn.addEventListener('touchstart', (e) => e.stopPropagation());
     closeHowToPlayBtn.addEventListener('click', (e) => {
@@ -1120,6 +1151,7 @@
       howToPlayScreen.classList.add('hidden');
       startScreen.classList.remove('hidden');
     });
+    
     settingsBtn.addEventListener('mousedown', (e) => e.stopPropagation());
     settingsBtn.addEventListener('touchstart', (e) => e.stopPropagation());
     settingsBtn.addEventListener('click', (e) => {
@@ -1128,6 +1160,7 @@
       startScreen.classList.add('hidden');
       settingsScreen.classList.remove('hidden');
     });
+    
     closeSettingsBtn.addEventListener('mousedown', (e) => e.stopPropagation());
     closeSettingsBtn.addEventListener('touchstart', (e) => e.stopPropagation());
     closeSettingsBtn.addEventListener('click', (e) => {
@@ -1138,18 +1171,18 @@
       settingsScreen.classList.add('hidden');
       startScreen.classList.remove('hidden');
     });
+    
     resetSettingsBtn.addEventListener('mousedown', (e) => e.stopPropagation());
     resetSettingsBtn.addEventListener('touchstart', (e) => e.stopPropagation());
     resetSettingsBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       rebindingAction = null;
-      keyBindings = {
-        ...DEFAULT_BINDINGS
-      };
+      keyBindings = { ...DEFAULT_BINDINGS };
       localStorage.setItem('desert_odyssey_keys', JSON.stringify(keyBindings));
       updateRebindButtonsUI();
       updateControlInfoUI();
     });
+    
     document.querySelectorAll('.rebind-btn').forEach(btn => {
       btn.addEventListener('mousedown', (e) => e.stopPropagation());
       btn.addEventListener('touchstart', (e) => e.stopPropagation());
@@ -1164,6 +1197,7 @@
         btn.innerText = '키를 누르세요...';
       });
     });
+    
     settingsScreen.querySelectorAll('input[type="range"]').forEach(slider => {
       slider.addEventListener('mousedown', (e) => e.stopPropagation());
       slider.addEventListener('touchstart', (e) => e.stopPropagation());
@@ -1273,6 +1307,7 @@
         playSound('shoot');
       }
     }
+    
     gameContainer.addEventListener('mousedown', (e) => {
       if (e.target.tagName.toLowerCase() === 'input' || e.target.tagName.toLowerCase() === 'button' || e.target.tagName.toLowerCase() === 'select') return;
       if (!howToPlayScreen.classList.contains('hidden') || !settingsScreen.classList.contains('hidden') || !globalNoticeScreen.classList.contains('hidden')) return;
@@ -1284,6 +1319,7 @@
         else playerJump();
       }
     });
+    
     let touchStartX = 0;
     let touchStartY = 0;
     let lastTouchX = 0;
@@ -1292,6 +1328,7 @@
     let isTouching = false;
     let swipeUpDist = 0;
     let swipeDownDist = 0;
+    
     gameContainer.addEventListener('touchstart', (e) => {
       if (e.target.tagName.toLowerCase() === 'input' || e.target.tagName.toLowerCase() === 'button' || e.target.tagName.toLowerCase() === 'select') return;
       if (gameState === 'PLAYING' || gameState === 'BOSS_BATTLE') e.preventDefault();
@@ -1304,9 +1341,8 @@
       touchXDelta = 0;
       swipeUpDist = 0;
       swipeDownDist = 0;
-    }, {
-      passive: false
-    });
+    }, { passive: false });
+    
     gameContainer.addEventListener('touchmove', (e) => {
       if (e.target.tagName.toLowerCase() === 'input' || e.target.tagName.toLowerCase() === 'button' || e.target.tagName.toLowerCase() === 'select') return;
       if (gameState !== 'PLAYING' && gameState !== 'BOSS_BATTLE') return;
@@ -1347,9 +1383,8 @@
         player.y -= (player.normalHeight - player.crouchHeight);
         swipeDownDist = 0;
       }
-    }, {
-      passive: false
-    });
+    }, { passive: false });
+    
     gameContainer.addEventListener('touchend', (e) => {
       if (e.target.tagName.toLowerCase() === 'input' || e.target.tagName.toLowerCase() === 'button' || e.target.tagName.toLowerCase() === 'select') return;
       if (e.touches.length === 0) {
@@ -1379,9 +1414,8 @@
           else playerJump();
         }
       }
-    }, {
-      passive: false
-    });
+    }, { passive: false });
+    
     document.addEventListener('keydown', (e) => {
       if (rebindingAction) {
         e.preventDefault();
@@ -1452,6 +1486,7 @@
         }
       }
     });
+    
     document.addEventListener('keyup', (e) => {
       if (e.code === keyBindings.crouch || e.code === 'ArrowDown') {
         e.preventDefault();
@@ -1463,33 +1498,6 @@
       }
       if (e.code === keyBindings.moveLeft || e.code === 'ArrowLeft') keyStates.moveLeft = false;
       if (e.code === keyBindings.moveRight || e.code === 'ArrowRight') keyStates.moveRight = false;
-    });
-
-    /* 🌟 중요 수정: 탭 전환, 창 포커스 아웃/인 시 모든 조작 및 캐릭터 상태를 확실히 리셋 */
-    function resetAllInputStates() {
-      if (typeof keyStates !== 'undefined') {
-        keyStates.moveLeft = false;
-        keyStates.moveRight = false;
-      }
-      isTouching = false;
-      touchXDelta = 0;
-      swipeUpDist = 0;
-      swipeDownDist = 0;
-      if (typeof player !== 'undefined' && player.isCrouching) {
-        player.isCrouching = false;
-        player.height = player.normalHeight;
-        player.y = groundY - player.height;
-      }
-      console.log("조작 및 캐릭터 상태 초기화 완료");
-    }
-    window.addEventListener('blur', resetAllInputStates);
-    window.addEventListener('focus', resetAllInputStates);
-    document.addEventListener('visibilitychange', () => {
-      resetAllInputStates();
-      if (document.visibilityState === 'visible') {
-        if (typeof checkForUpdates === 'function') checkForUpdates();
-        if (window.swRegistration) window.swRegistration.update();
-      }
     });
 
     function checkCollision(rect1, rect2) {
@@ -1564,6 +1572,7 @@
         if (player.x < 20) player.x = 20;
         if (player.x + player.width > virtualWidth - 20) player.x = virtualWidth - player.width - 20;
         if (player.shootCooldown > 0) player.shootCooldown -= timeScale;
+        
         let targetFloor = groundY;
         for (let obs of obstacles) {
           if (obs.type === 'platform') {
@@ -1584,6 +1593,7 @@
         } else {
           player.isGrounded = false;
         }
+        
         let shiftedTrail = null;
         if (player.trail.length >= 15) {
           shiftedTrail = player.trail.shift();
@@ -1599,6 +1609,7 @@
           });
         }
       }
+      
       if (player.trail.length > 0) {
         ctx.beginPath();
         ctx.moveTo(Math.round(player.trail[0].x), Math.round(player.trail[0].y));
@@ -1618,6 +1629,7 @@
       ctx.fill();
       ctx.fillStyle = '#d46c63';
       ctx.fillRect(Math.round(player.x - 5), Math.round(player.y + player.height - 3), player.width + 10, 4);
+      
       for (let i = player.projectiles.length - 1; i >= 0; i--) {
         let p = player.projectiles[i];
         p.x += p.speed * timeScale;
@@ -1685,6 +1697,7 @@
       else {
         boss.y = (VIRTUAL_HEIGHT / 2 - 50) + Math.sin(animationFrameCount * 0.05) * 60;
       }
+      
       if (boss.hp > 0 && !boss.leaving && boss.x <= virtualWidth - 180) {
         boss.shootTimer += timeScale;
         let currentShootInterval = 110 - (bossLevel * 1);
@@ -1732,6 +1745,7 @@
         scoreValueUI.innerText = score;
         return;
       }
+      
       if (!boss.leaving) {
         for (let i = player.projectiles.length - 1; i >= 0; i--) {
           if (checkProjectileCollision(player.projectiles[i], boss)) {
@@ -1742,6 +1756,7 @@
           }
         }
       }
+      
       const bx = Math.round(boss.x);
       const by = Math.round(boss.y);
       if (boss.hitTimer > 0) {
@@ -1768,6 +1783,7 @@
       ctx.arc(bx + boss.width / 2, by + boss.height / 2, 6, 0, Math.PI * 2);
       ctx.fill();
       ctx.shadowBlur = 0;
+      
       if (boss.hp > 0 && !boss.leaving) {
         ctx.fillStyle = '#ffffff';
         ctx.font = 'bold 24px "Noto Serif KR"';
@@ -1777,6 +1793,7 @@
         ctx.fillStyle = '#ffe600';
         ctx.fillText(`DAMAGE: ${player.damage}`, bx + boss.width / 2, by - 55);
       }
+      
       for (let i = boss.projectiles.length - 1; i >= 0; i--) {
         let p = boss.projectiles[i];
         p.x -= p.speed * timeScale;
@@ -1790,6 +1807,7 @@
         if (checkCollision(player, p)) endGame();
         if (p.x + p.width < 0) boss.projectiles.splice(i, 1);
       }
+      
       if (boss.leaving && boss.x > virtualWidth && boss.projectiles.length === 0) {
         boss.active = false;
         gameState = 'PLAYING';
@@ -1818,13 +1836,16 @@
       lastTime = timestamp;
       const timeScale = deltaTime / 16.67;
       animationFrameCount += timeScale;
+      
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.scale(gameScale, gameScale);
       drawBackground();
       updateAndDrawDunes(timeScale);
+      
       currentGameSpeed = baseGameSpeed + (score / 170);
       let obstacleSpeed = (score > 8000) ? (baseGameSpeed + (7000 / 400)) : currentGameSpeed;
+      
       if (gameState === 'PLAYING') {
         spawnObstacle(timeScale);
         if (score >= nextBossScore) {
@@ -1841,6 +1862,7 @@
       } else if (gameState === 'BOSS_BATTLE') {
         updateAndDrawBoss(timeScale);
       }
+      
       if (gameState === 'PLAYING' || gameState === 'BOSS_BATTLE') {
         scoreTimer += timeScale;
         if (scoreTimer >= 5) {
@@ -1924,7 +1946,8 @@
       recordSection.style.display = 'flex';
       gameOverScreen.classList.remove('hidden');
       bossWarningUI.classList.remove('warning-active');
-      resetAllInputStates();
+      keyStates.moveLeft = false;
+      keyStates.moveRight = false;
       obstacles = [];
       boss.active = false;
       boss.leaving = false;
@@ -1975,17 +1998,25 @@
         leaderboardDisplay.innerHTML = '<h3>🏆 명예의 전당 🏆</h3><p style="font-size:1.3cqw; margin-top:1cqh;">기록된 방랑자가 없습니다.</p>';
         return;
       }
-      let html = '<h3>🏆 명예의 전당 🏆</h3><table><tr><th>순위</th><th>이름</th><th>점수</th></tr>';
+      let html = '<h3>🏆 명예의 전당 🏆</h3>';
+      html += '<div class="leaderboard-table-container">';
+      html += '<table><tr><th>순위</th><th>이름</th><th>점수</th></tr>';
       leaderboard.forEach((entry, index) => {
         let rankText = (index === 0) ? '🥇' : (index === 1) ? '🥈' : (index === 2) ? '🥉' : `${index + 1}위`;
         html += `<tr><td>${rankText}</td><td>${entry.name}</td><td>${entry.score}</td></tr>`;
       });
-      html += '</table>';
+      html += '</table></div>';
       leaderboardDisplay.innerHTML = html;
     }
+    
+    leaderboardDisplay.addEventListener('mousedown', (e) => e.stopPropagation());
+    leaderboardDisplay.addEventListener('touchstart', (e) => e.stopPropagation());
+    leaderboardDisplay.addEventListener('click', (e) => e.stopPropagation());
+
     recordSection.addEventListener('mousedown', (e) => e.stopPropagation());
     recordSection.addEventListener('touchstart', (e) => e.stopPropagation());
     recordSection.addEventListener('click', (e) => e.stopPropagation());
+    
     playerNameInput.addEventListener('keydown', (e) => {
       e.stopPropagation();
       if (e.isComposing) return;
@@ -1994,6 +2025,7 @@
         saveScoreBtn.click();
       }
     });
+    
     saveScoreBtn.addEventListener('click', (e) => {
       const name = playerNameInput.value.trim() || '이름없는 방랑자';
       saveScoreBtn.innerText = "저장 중...";
@@ -2026,31 +2058,37 @@
           skipSaveBtn.disabled = false;
         });
     });
+    
     skipSaveBtn.addEventListener('click', (e) => {
       recordSection.style.display = 'none';
       resetToStartScreen();
     });
+    
     document.addEventListener('contextmenu', (e) => e.preventDefault());
+    
     updateRebindButtonsUI();
     updateControlInfoUI();
-    handleResize();
+    resizeGame();
     initDunes();
     loadLeaderboard();
     checkNewNotices();
+    
     window.addEventListener('DOMContentLoaded', () => {
       setTimeout(() => {
-        handleResize();
+        resizeGame();
         const container = document.getElementById('gameContainer');
         if (container) {
           container.style.opacity = '1';
         }
       }, 150);
     });
+    
     accurateTimer(() => {
       if (gameState === 'START' && !startScreen.classList.contains('hidden')) {
         loadLeaderboard();
       }
     }, 5000);
+    
     accurateTimer(() => {
       if (gameState === 'START' && !startScreen.classList.contains('hidden')) {
         checkNewNotices();
